@@ -47,10 +47,20 @@ export { Prisma }
  */
 export type Organization = Prisma.OrganizationModel
 /**
+ * Model Membership
+ * 
+ */
+export type Membership = Prisma.MembershipModel
+/**
  * Model User
  * 
  */
 export type User = Prisma.UserModel
+/**
+ * Model Invitation
+ * 
+ */
+export type Invitation = Prisma.InvitationModel
 /**
  * Model DataSource
  * 

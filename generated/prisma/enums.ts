@@ -26,3 +26,23 @@ export const ImportStatus = {
 } as const
 
 export type ImportStatus = (typeof ImportStatus)[keyof typeof ImportStatus]
+
+
+export const OrganizationRole = {
+  HR: 'HR',
+  EMPLOYEE: 'EMPLOYEE'
+} as const
+
+export type OrganizationRole = (typeof OrganizationRole)[keyof typeof OrganizationRole]
+
+
+export const InvitationStatus = {
+  PENDING: 'PENDING',
+  SENT: 'SENT',
+  ACCEPTED: 'ACCEPTED',
+  EXPIRED: 'EXPIRED',
+  REVOKED: 'REVOKED',
+  FAILED: 'FAILED'
+} as const
+
+export type InvitationStatus = (typeof InvitationStatus)[keyof typeof InvitationStatus]

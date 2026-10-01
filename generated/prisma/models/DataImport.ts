@@ -551,10 +551,6 @@ export type IntFieldUpdateOperationsInput = {
   divide?: number
 }
 
-export type NullableDateTimeFieldUpdateOperationsInput = {
-  set?: Date | string | null
-}
-
 export type DataImportCreateNestedOneWithoutColumnMappingsInput = {
   create?: Prisma.XOR<Prisma.DataImportCreateWithoutColumnMappingsInput, Prisma.DataImportUncheckedCreateWithoutColumnMappingsInput>
   connectOrCreate?: Prisma.DataImportCreateOrConnectWithoutColumnMappingsInput

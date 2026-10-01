@@ -20,6 +20,11 @@ enum ImportStatus {
     PARTIALLY_COMPLETED
 }
 
+enum OrganizationRole {
+    HR
+    EMPLOYEE
+}
+
 model Organization {
     id          String       @id @default(cuid())
     name        String
@@ -27,16 +32,69 @@ model Organization {
     dataSources DataSource[]
     createdAt   DateTime     @default(now())
     updatedAt   DateTime     @updatedAt
+    memberships Membership[]
+    invitations Invitation[]
+}
+
+model Membership {
+    id             String           @id @default(cuid())
+    userId         String
+    organizationId String
+    role           OrganizationRole @default(EMPLOYEE)
+
+    user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+    organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+    createdAt DateTime @default(now())
+
+    @@unique([userId, organizationId])
+    @@index([organizationId, role])
 }
 
 model User {
-    id             String       @id @default(cuid())
-    name           String?
-    email          String       @unique
+    id              String       @id @default(cuid())
+    name            String?
+    email           String       @unique
+    passwordHash    String?
+    isActive        Boolean      @default(false)
+    department      String?
+    organizationId  String
+    organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+    createdAt       DateTime     @default(now())
+    updatedAt       DateTime     @updatedAt
+    memberships     Membership[]
+    sentInvitations Invitation[] @relation("InvitedByUsers")
+}
+
+enum InvitationStatus {
+    PENDING
+    SENT
+    ACCEPTED
+    EXPIRED
+    REVOKED
+    FAILED
+}
+
+model Invitation {
+    id             String           @id @default(cuid())
+    email          String
+    role           OrganizationRole @default(EMPLOYEE)
     organizationId String
-    organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-    createdAt      DateTime     @default(now())
-    updatedAt      DateTime     @updatedAt
+    organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+    invitedById    String
+    invitedBy      User             @relation("InvitedByUsers", fields: [invitedById], references: [id], onDelete: Cascade)
+    tokenHash      String           @unique
+    status         InvitationStatus @default(PENDING)
+    failureReason  String?
+    expiresAt      DateTime
+    sentAt         DateTime?
+    acceptedAt     DateTime?
+    revokedAt      DateTime?
+    createdAt      DateTime         @default(now())
+    updatedAt      DateTime         @updatedAt
+
+    @@index([organizationId, email])
+    @@index([status])
 }
 
 model DataSource {

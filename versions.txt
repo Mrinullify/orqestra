@@ -1,4 +1,4 @@
-🚀 NexusAI — Version Roadmap
+🚀 Orqestra — Version Roadmap
 Version 1 — Foundation MVP
 
 Goal: Build the actual business application first.

@@ -1,0 +1,91 @@
+generator client {
+    provider = "prisma-client"
+    output   = "../generated/prisma"
+}
+
+datasource db {
+    provider = "postgresql"
+}
+
+enum DataSourceType {
+    CSV
+    EXCEL
+}
+
+enum ImportStatus {
+    PENDING
+    PROCESSING
+    COMPLETED
+    FAILED
+    PARTIALLY_COMPLETED
+}
+
+model Organization {
+    id          String       @id @default(cuid())
+    name        String
+    users       User[]
+    dataSources DataSource[]
+    createdAt   DateTime     @default(now())
+    updatedAt   DateTime     @updatedAt
+}
+
+model User {
+    id             String       @id @default(cuid())
+    name           String?
+    email          String       @unique
+    organizationId String
+    organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+    createdAt      DateTime     @default(now())
+    updatedAt      DateTime     @updatedAt
+}
+
+model DataSource {
+    id             String         @id @default(cuid())
+    name           String
+    originalName   String
+    type           DataSourceType
+    mimeType       String?
+    sizeBytes      BigInt?
+    storageKey     String
+    organizationId String
+    organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+    imports        DataImport[]
+    createdAt      DateTime       @default(now())
+    updatedAt      DateTime       @updatedAt
+
+    @@index([organizationId])
+}
+
+model DataImport {
+    id             String          @id @default(cuid())
+    dataSourceId   String
+    dataSource     DataSource      @relation(fields: [dataSourceId], references: [id], onDelete: Cascade)
+    status         ImportStatus    @default(PENDING)
+    totalRows      Int?
+    acceptedRows   Int             @default(0)
+    rejectedRows   Int             @default(0)
+    errorDetails   Json?
+    startedAt      DateTime?
+    completedAt    DateTime?
+    columnMappings ColumnMapping[]
+    createdAt      DateTime        @default(now())
+
+    @@index([dataSourceId, createdAt])
+    @@index([status])
+}
+
+model ColumnMapping {
+    id             String     @id @default(cuid())
+    dataImportId   String
+    dataImport     DataImport @relation(fields: [dataImportId], references: [id], onDelete: Cascade)
+    originalName   String
+    normalizedName String
+    detectedType   String?
+    confidence     Float?
+    isApproved     Boolean    @default(false)
+    createdAt      DateTime   @default(now())
+    updatedAt      DateTime   @updatedAt
+
+    @@unique([dataImportId, originalName])
+    @@index([dataImportId])
+}

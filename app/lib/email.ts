@@ -7,31 +7,31 @@ const FROM_ADDRESS = process.env.EMAIL_FROM ?? "Orqestra <noreply@orqestra.app>"
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
 export interface InvitationEmailData {
-    toEmail: string;
-    toName: string | null;
-    organizationName: string;
-    invitationToken: string;
+  toEmail: string;
+  toName: string | null;
+  organizationName: string;
+  invitationToken: string;
 }
 
 export interface ActivationConfirmationData {
-    toEmail: string;
-    toName: string | null;
-    organizationName: string;
+  toEmail: string;
+  toName: string | null;
+  organizationName: string;
 }
 
 export type EmailResult =
-    | { success: true; messageId: string }
-    | { success: false; error: string };
+  | { success: true; messageId: string }
+  | { success: false; error: string };
 
 export async function sendInvitationEmail(data: InvitationEmailData): Promise<EmailResult> {
-    const activationUrl = `${APP_URL}/activate?token=${encodeURIComponent(data.invitationToken)}`;
+  const activationUrl = `${APP_URL}/activate?token=${encodeURIComponent(data.invitationToken)}`;
 
-    try {
-        const result = await resend.emails.send({
-            from: FROM_ADDRESS,
-            to: data.toEmail,
-            subject: `You're invited to join ${data.organizationName} on Orqestra`,
-            html: `
+  try {
+    const result = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: data.toEmail,
+      subject: `You're invited to join ${data.organizationName} on Orqestra`,
+      html: `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -63,26 +63,26 @@ export async function sendInvitationEmail(data: InvitationEmailData): Promise<Em
   </div>
 </body>
 </html>`,
-        });
+    });
 
-        if (result.error) {
-            return { success: false, error: result.error.message };
-        }
-
-        return { success: true, messageId: result.data?.id ?? "unknown" };
-    } catch (err) {
-        const message = err instanceof Error ? err.message : "Unknown email error";
-        return { success: false, error: message };
+    if (result.error) {
+      return { success: false, error: result.error.message };
     }
+
+    return { success: true, messageId: result.data?.id ?? "unknown" };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown email error";
+    return { success: false, error: message };
+  }
 }
 
 export async function sendActivationConfirmationEmail(data: ActivationConfirmationData): Promise<EmailResult> {
-    try {
-        const result = await resend.emails.send({
-            from: FROM_ADDRESS,
-            to: data.toEmail,
-            subject: `Welcome to ${data.organizationName} on Orqestra`,
-            html: `
+  try {
+    const result = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: data.toEmail,
+      subject: `Welcome to ${data.organizationName} on Orqestra`,
+      html: `
 <!DOCTYPE html>
 <html lang="en">
 <head><meta charset="UTF-8" /></head>
@@ -104,15 +104,15 @@ export async function sendActivationConfirmationEmail(data: ActivationConfirmati
   </div>
 </body>
 </html>`,
-        });
+    });
 
-        if (result.error) {
-            return { success: false, error: result.error.message };
-        }
-
-        return { success: true, messageId: result.data?.id ?? "unknown" };
-    } catch (err) {
-        const message = err instanceof Error ? err.message : "Unknown email error";
-        return { success: false, error: message };
+    if (result.error) {
+      return { success: false, error: result.error.message };
     }
+
+    return { success: true, messageId: result.data?.id ?? "unknown" };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown email error";
+    return { success: false, error: message };
+  }
 }

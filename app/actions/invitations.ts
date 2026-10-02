@@ -2,28 +2,37 @@
 
 import { z } from "zod";
 import crypto from "crypto";
-import { requireHRSession } from "@/app/lib/auth";
+import { headers } from "next/headers";
+import { requireHRRole } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
-import { sendInvitationEmail } from "@/app/lib/email";
+import { invitationQueue } from "@/app/lib/queue";
+import { checkRateLimit, RATE_LIMITS } from "@/app/lib/rate-limit";
 
 const INVITATION_EXPIRY_HOURS = Number(process.env.INVITATION_EXPIRY_HOURS ?? "24");
 const MAX_BATCH_SIZE = Number(process.env.MAX_INVITATION_BATCH ?? "500");
 
 // ---------------------------------------------------------------------------
-// Types
+// Schemas
 // ---------------------------------------------------------------------------
 
-export interface EmployeeRow {
-    name: string;
-    email: string;
-    department: string;
-}
+export const EmployeeItemSchema = z.object({
+    name: z.string().trim().min(1, "Employee name is required"),
+    email: z.string().trim().toLowerCase().email("Invalid work email address"),
+    department: z.string().trim().optional().default(""),
+});
+
+export const BulkEmployeeBatchSchema = z.array(EmployeeItemSchema)
+    .min(1, "At least one employee must be provided")
+    .max(MAX_BATCH_SIZE, `Batch size cannot exceed ${MAX_BATCH_SIZE} employees`);
+
+export type EmployeeRow = z.infer<typeof EmployeeItemSchema>;
 
 export interface ValidationResult {
     valid: EmployeeRow[];
     errors: Array<{ row: number; email: string; reason: string }>;
     duplicateEmails: string[];
     existingMembers: string[];
+    otherOrgEmails: string[];
 }
 
 export type InviteState =
@@ -47,14 +56,13 @@ function normalizeEmail(email: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Validate parsed CSV rows
+// Server-Side Employee Input Validation
 // ---------------------------------------------------------------------------
 
-export async function validateEmployeeRows(
+export async function validateEmployeeRowsServer(
     rows: EmployeeRow[],
     organizationId: string
 ): Promise<ValidationResult> {
-    const emailSchema = z.string().email();
     const seen = new Set<string>();
     const duplicateEmails: string[] = [];
     const validRows: EmployeeRow[] = [];
@@ -63,216 +71,237 @@ export async function validateEmployeeRows(
     const limitedRows = rows.slice(0, MAX_BATCH_SIZE);
 
     for (let i = 0; i < limitedRows.length; i++) {
-        const row = limitedRows[i];
-        const email = normalizeEmail(row.email ?? "");
-        const name = (row.name ?? "").trim();
+        const rawRow = limitedRows[i];
+        const parsed = EmployeeItemSchema.safeParse(rawRow);
 
-        if (!email) {
-            errors.push({ row: i + 1, email: row.email, reason: "Missing email" });
+        if (!parsed.success) {
+            const firstErr = parsed.error.issues[0]?.message ?? "Invalid input data";
+            errors.push({ row: i + 1, email: rawRow?.email ?? "", reason: firstErr });
             continue;
         }
 
-        const emailValid = emailSchema.safeParse(email);
-        if (!emailValid.success) {
-            errors.push({ row: i + 1, email, reason: "Invalid email address" });
-            continue;
-        }
-
-        if (!name) {
-            errors.push({ row: i + 1, email, reason: "Missing employee name" });
-            continue;
-        }
+        const { name, email, department } = parsed.data;
 
         if (seen.has(email)) {
             duplicateEmails.push(email);
-            errors.push({ row: i + 1, email, reason: "Duplicate email in upload" });
+            errors.push({ row: i + 1, email, reason: "Duplicate email in batch" });
             continue;
         }
 
         seen.add(email);
-        validRows.push({ ...row, email, name });
+        validRows.push({ name, email, department });
     }
 
-    // Check DB for existing memberships
+    // Server DB Check across ALL organizations
     const validEmails = validRows.map((r) => r.email);
     const existingUsers = await prisma.user.findMany({
         where: { email: { in: validEmails } },
         select: {
             email: true,
-            memberships: {
-                where: { organizationId },
-                select: { id: true },
-            },
+            organizationId: true,
+            isActive: true,
         },
     });
 
     const existingMembers: string[] = [];
+    const otherOrgEmails: string[] = [];
     const filteredValid: EmployeeRow[] = [];
 
     for (const row of validRows) {
         const existing = existingUsers.find((u) => u.email === row.email);
-        if (existing && existing.memberships.length > 0) {
-            existingMembers.push(row.email);
-            errors.push({ row: validRows.indexOf(row) + 1, email: row.email, reason: "Already a member of this organization" });
+
+        if (existing) {
+            if (existing.organizationId !== organizationId) {
+                otherOrgEmails.push(row.email);
+                errors.push({
+                    row: validRows.indexOf(row) + 1,
+                    email: row.email,
+                    reason: "Email belongs to another organization",
+                });
+            } else if (existing.isActive) {
+                existingMembers.push(row.email);
+                errors.push({
+                    row: validRows.indexOf(row) + 1,
+                    email: row.email,
+                    reason: "Already an active member of this organization",
+                });
+            } else {
+                // User exists in this org but is inactive (pending invitation) - allow re-invite
+                filteredValid.push(row);
+            }
         } else {
             filteredValid.push(row);
         }
     }
 
-    return { valid: filteredValid, errors, duplicateEmails, existingMembers };
+    return {
+        valid: filteredValid,
+        errors,
+        duplicateEmails,
+        existingMembers,
+        otherOrgEmails,
+    };
 }
 
 // ---------------------------------------------------------------------------
-// Create invitations (HR-only, after confirmation)
+// Create Bulk Invitations (HR-only, Background Jobs)
 // ---------------------------------------------------------------------------
 
 export async function createBulkInvitationsAction(
     state: InviteState,
     formData: FormData
 ): Promise<InviteState> {
-    const auth = await requireHRSession();
+    // 1. Server-side HR authorization check
+    const auth = await requireHRRole();
 
+    // 2. Rate Limiting Check
+    const reqHeaders = await headers();
+    const ip = reqHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "127.0.0.1";
+    const rlKey = `bulk-invite:${auth.userId}:${auth.organizationId}`;
+
+    const rl = await checkRateLimit(
+        rlKey,
+        RATE_LIMITS.BULK_INVITE.maxRequests,
+        RATE_LIMITS.BULK_INVITE.windowSeconds
+    );
+
+    if (!rl.success) {
+        return {
+            errors: [`Rate limit exceeded. Please wait ${rl.reset - Math.floor(Date.now() / 1000)} seconds.`],
+        };
+    }
+
+    // 3. Parse input JSON
     const rawJson = formData.get("employees");
     if (typeof rawJson !== "string") {
-        return { errors: ["Invalid request."] };
+        return { errors: ["Invalid request payload."] };
     }
 
-    let employees: EmployeeRow[];
+    let parsedRows: unknown;
     try {
-        employees = JSON.parse(rawJson) as EmployeeRow[];
+        parsedRows = JSON.parse(rawJson);
     } catch {
-        return { errors: ["Could not parse employee data."] };
+        return { errors: ["Could not parse employee JSON payload."] };
     }
 
-    if (!Array.isArray(employees) || employees.length === 0) {
-        return { errors: ["No valid employees to invite."] };
+    // 4. Server Zod validation
+    const batchParse = BulkEmployeeBatchSchema.safeParse(parsedRows);
+    if (!batchParse.success) {
+        const errMsgs = batchParse.error.issues.map((issue) => issue.message);
+        return { errors: errMsgs };
     }
 
-    if (employees.length > MAX_BATCH_SIZE) {
-        return { errors: [`Maximum ${MAX_BATCH_SIZE} employees per batch.`] };
+    const inputEmployees = batchParse.data;
+
+    // 5. Full server DB validation (no trusting client)
+    const validation = await validateEmployeeRowsServer(inputEmployees, auth.organizationId);
+
+    if (validation.valid.length === 0) {
+        return { errors: ["No valid employees to invite after server validation."] };
     }
 
-    const hr = await prisma.user.findUnique({
-        where: { id: auth.userId },
-        include: { organization: true },
-    });
-    if (!hr) return { errors: ["Your account was not found."] };
+    const validEmployees = validation.valid;
+    const expiresAt = new Date(Date.now() + INVITATION_EXPIRY_HOURS * 60 * 60 * 1000);
 
-    let successCount = 0;
-    const failures: string[] = [];
+    const jobsToEnqueue: Array<{ invitationId: string; token: string }> = [];
 
-    // Process each employee
-    for (const emp of employees) {
-        const email = normalizeEmail(emp.email);
-        const expiresAt = new Date(Date.now() + INVITATION_EXPIRY_HOURS * 60 * 60 * 1000);
-        const token = generateToken();
-        const tokenHash = hashToken(token);
+    // 6. DB operations in transaction (User + Invitation creation only, NO synchronous emails)
+    await prisma.$transaction(async (tx) => {
+        for (const emp of validEmployees) {
+            const email = normalizeEmail(emp.email);
+            const token = generateToken();
+            const tokenHash = hashToken(token);
 
-        try {
-            // Upsert user record (create if not exists)
-            await prisma.$transaction(async (tx) => {
-                let user = await tx.user.findUnique({ where: { email } });
-                if (!user) {
-                    user = await tx.user.create({
-                        data: {
-                            email,
-                            name: emp.name,
-                            department: emp.department,
-                            organizationId: auth.organizationId,
-                            isActive: false,
-                        },
-                    });
-                } else {
-                    await tx.user.update({
-                        where: { id: user.id },
-                        data: { name: emp.name, department: emp.department },
-                    });
-                }
-
-                // Expire any existing pending/sent invitations for this email+org
-                await tx.invitation.updateMany({
-                    where: {
-                        email,
-                        organizationId: auth.organizationId,
-                        status: { in: ["PENDING", "SENT"] },
-                    },
-                    data: { status: "EXPIRED" },
-                });
-
-                // Create the new invitation
-                await tx.invitation.create({
+            // Upsert user (role forced strictly to EMPLOYEE, organizationId forced strictly from server session)
+            let user = await tx.user.findUnique({ where: { email } });
+            if (!user) {
+                user = await tx.user.create({
                     data: {
                         email,
+                        name: emp.name,
+                        department: emp.department,
                         organizationId: auth.organizationId,
-                        invitedById: auth.userId,
-                        tokenHash,
+                        role: "EMPLOYEE", // FORCED ROLE
+                        isActive: false,
+                    },
+                });
+            } else if (user.organizationId === auth.organizationId) {
+                await tx.user.update({
+                    where: { id: user.id },
+                    data: {
+                        name: emp.name,
+                        department: emp.department,
                         role: "EMPLOYEE",
-                        expiresAt,
-                        status: "PENDING",
-                    },
-                });
-            });
-
-            // Send invitation email
-            const emailResult = await sendInvitationEmail({
-                toEmail: email,
-                toName: emp.name,
-                organizationName: hr.organization.name,
-                invitationToken: token,
-            });
-
-            // Update invitation status based on email result
-            const invitation = await prisma.invitation.findFirst({
-                where: { tokenHash },
-                select: { id: true },
-            });
-
-            if (invitation) {
-                await prisma.invitation.update({
-                    where: { id: invitation.id },
-                    data: {
-                        status: emailResult.success ? "SENT" : "FAILED",
-                        sentAt: emailResult.success ? new Date() : null,
-                        failureReason: emailResult.success ? null : emailResult.error,
                     },
                 });
             }
 
-            successCount++;
-        } catch (err) {
-            const message = err instanceof Error ? err.message : "Unknown error";
-            failures.push(`${email}: ${message}`);
+            // Expire previous pending/sent invitations for this email in this org
+            await tx.invitation.updateMany({
+                where: {
+                    email,
+                    organizationId: auth.organizationId,
+                    status: { in: ["PENDING", "QUEUED", "SENT"] },
+                },
+                data: { status: "EXPIRED" },
+            });
+
+            // Create Invitation record with status QUEUED
+            const invitation = await tx.invitation.create({
+                data: {
+                    email,
+                    organizationId: auth.organizationId,
+                    invitedById: auth.userId,
+                    tokenHash,
+                    role: "EMPLOYEE", // FORCED ROLE
+                    expiresAt,
+                    status: "QUEUED",
+                },
+            });
+
+            jobsToEnqueue.push({ invitationId: invitation.id, token });
         }
-    }
+    });
 
-    if (failures.length > 0) {
-        return {
-            success: true,
-            count: successCount,
-            message: `${successCount} invitation(s) sent. ${failures.length} failed.`,
-            errors: failures,
-        };
-    }
+    // 7. Enqueue background jobs asynchronously (returns instantly!)
+    invitationQueue.enqueueBatch(jobsToEnqueue);
 
-    return { success: true, count: successCount };
+    return {
+        success: true,
+        count: jobsToEnqueue.length,
+        message: `${jobsToEnqueue.length} invitation(s) queued for processing.`,
+    };
 }
 
 // ---------------------------------------------------------------------------
-// Resend invitation (HR-only)
+// Resend Invitation Action (HR-only, Background Worker)
 // ---------------------------------------------------------------------------
 
 export async function resendInvitationAction(
     state: InviteState,
     formData: FormData
 ): Promise<InviteState> {
-    const auth = await requireHRSession();
+    const auth = await requireHRRole();
 
     const invitationId = formData.get("invitationId");
     if (typeof invitationId !== "string") return { errors: ["Invalid request."] };
 
+    // Rate Limiting
+    const rlKey = `resend:${auth.userId}:${invitationId}`;
+    const rl = await checkRateLimit(
+        rlKey,
+        RATE_LIMITS.RESEND.maxRequests,
+        RATE_LIMITS.RESEND.windowSeconds
+    );
+
+    if (!rl.success) {
+        return { errors: ["Resend rate limit reached. Please wait before retrying."] };
+    }
+
+    // Tenant Isolation Check
     const invitation = await prisma.invitation.findUnique({
         where: { id: invitationId },
-        include: { organization: { select: { name: true } } },
+        select: { id: true, organizationId: true, status: true, email: true },
     });
 
     if (!invitation || invitation.organizationId !== auth.organizationId) {
@@ -287,57 +316,40 @@ export async function resendInvitationAction(
     const token = generateToken();
     const tokenHash = hashToken(token);
 
+    // Idempotent update: update existing invitation record
     await prisma.invitation.update({
         where: { id: invitationId },
         data: {
             tokenHash,
             expiresAt,
-            status: "PENDING",
+            status: "QUEUED",
             sentAt: null,
             failureReason: null,
         },
     });
 
-    const user = await prisma.user.findUnique({ where: { email: invitation.email }, select: { name: true } });
-    const emailResult = await sendInvitationEmail({
-        toEmail: invitation.email,
-        toName: user?.name ?? null,
-        organizationName: invitation.organization.name,
-        invitationToken: token,
-    });
+    // Enqueue background job
+    invitationQueue.enqueue({ invitationId, token });
 
-    await prisma.invitation.update({
-        where: { id: invitationId },
-        data: {
-            status: emailResult.success ? "SENT" : "FAILED",
-            sentAt: emailResult.success ? new Date() : null,
-            failureReason: emailResult.success ? null : emailResult.error,
-        },
-    });
-
-    if (!emailResult.success) {
-        return { errors: [`Failed to send email: ${emailResult.error}`] };
-    }
-
-    return { success: true };
+    return { success: true, message: "Invitation resend enqueued." };
 }
 
 // ---------------------------------------------------------------------------
-// Revoke invitation (HR-only)
+// Revoke Invitation Action (HR-only)
 // ---------------------------------------------------------------------------
 
 export async function revokeInvitationAction(
     state: InviteState,
     formData: FormData
 ): Promise<InviteState> {
-    const auth = await requireHRSession();
+    const auth = await requireHRRole();
 
     const invitationId = formData.get("invitationId");
     if (typeof invitationId !== "string") return { errors: ["Invalid request."] };
 
     const invitation = await prisma.invitation.findUnique({
         where: { id: invitationId },
-        select: { organizationId: true, status: true },
+        select: { id: true, organizationId: true, status: true },
     });
 
     if (!invitation || invitation.organizationId !== auth.organizationId) {

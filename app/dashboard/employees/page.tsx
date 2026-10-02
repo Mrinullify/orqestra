@@ -1,4 +1,4 @@
-import { requireHRSession } from "@/app/lib/auth";
+import { requireHRRole } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
 import Link from "next/link";
 import type { Metadata } from "next";
@@ -10,18 +10,18 @@ export const metadata: Metadata = {
 };
 
 export default async function EmployeesPage() {
-    const auth = await requireHRSession();
+    const auth = await requireHRRole();
 
     const [members, invitations] = await Promise.all([
-        prisma.membership.findMany({
+        prisma.user.findMany({
             where: { organizationId: auth.organizationId },
-            include: { user: { select: { id: true, name: true, email: true, department: true, isActive: true, createdAt: true } } },
+            select: { id: true, name: true, email: true, department: true, role: true, isActive: true, createdAt: true },
             orderBy: { createdAt: "desc" },
         }),
         prisma.invitation.findMany({
             where: {
                 organizationId: auth.organizationId,
-                status: { in: ["PENDING", "SENT", "FAILED"] },
+                status: { in: ["PENDING", "QUEUED", "PROCESSING", "SENT", "FAILED"] },
             },
             orderBy: { createdAt: "desc" },
         }),
@@ -42,7 +42,7 @@ export default async function EmployeesPage() {
                 </Link>
             </div>
 
-            {/* Pending invitations */}
+            {/* Pending & Queued invitations */}
             {invitations.length > 0 && (
                 <div className="mb-8">
                     <h2 className="mb-3 text-sm font-semibold text-zinc-700 uppercase tracking-wide">
@@ -82,29 +82,29 @@ export default async function EmployeesPage() {
                     </div>
                 ) : (
                     <div className="rounded-xl border border-zinc-200 bg-white divide-y divide-zinc-100 overflow-hidden">
-                        {members.map((m) => (
-                            <div key={m.id} className="flex items-center justify-between px-5 py-4">
+                        {members.map((user) => (
+                            <div key={user.id} className="flex items-center justify-between px-5 py-4">
                                 <div>
                                     <p className="text-sm font-medium text-zinc-900">
-                                        {m.user.name ?? m.user.email}
+                                        {user.name ?? user.email}
                                     </p>
                                     <p className="text-xs text-zinc-400 mt-0.5">
-                                        {m.user.email}
-                                        {m.user.department ? ` · ${m.user.department}` : ""}
+                                        {user.email}
+                                        {user.department ? ` · ${user.department}` : ""}
                                     </p>
                                 </div>
                                 <div className="flex items-center gap-3">
                                     <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-medium text-zinc-700">
-                                        {m.role}
+                                        {user.role}
                                     </span>
                                     <span
                                         className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                                            m.user.isActive
+                                            user.isActive
                                                 ? "bg-emerald-50 text-emerald-700"
                                                 : "bg-zinc-100 text-zinc-500"
                                         }`}
                                     >
-                                        {m.user.isActive ? "Active" : "Pending activation"}
+                                        {user.isActive ? "Active" : "Pending activation"}
                                     </span>
                                 </div>
                             </div>

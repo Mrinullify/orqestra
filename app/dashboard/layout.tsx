@@ -1,13 +1,13 @@
-import { requireSession } from "@/app/lib/session";
+import { getVerifiedAuthSession } from "@/app/lib/auth";
 import { logoutAction } from "@/app/actions/auth";
 import Link from "next/link";
 import { prisma } from "@/app/lib/prisma";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-    const session = await requireSession();
+    const authSession = await getVerifiedAuthSession();
 
     const user = await prisma.user.findUnique({
-        where: { id: session.userId },
+        where: { id: authSession.userId },
         select: { name: true, email: true, organization: { select: { name: true } } },
     });
 
@@ -24,7 +24,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
                             <Link href="/dashboard" className="text-zinc-500 hover:text-zinc-900 transition">
                                 Dashboard
                             </Link>
-                            {session.role === "HR" && (
+                            {authSession.role === "HR" && (
                                 <Link href="/dashboard/employees" className="text-zinc-500 hover:text-zinc-900 transition">
                                     Employees
                                 </Link>
@@ -35,7 +35,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
                     <div className="flex items-center gap-4">
                         <div className="hidden sm:block text-right">
                             <p className="text-sm font-medium text-zinc-900 leading-none">{user?.name ?? user?.email}</p>
-                            <p className="text-xs text-zinc-400 mt-0.5">{user?.organization.name} · {session.role}</p>
+                            <p className="text-xs text-zinc-400 mt-0.5">{user?.organization.name} · {authSession.role}</p>
                         </div>
 
                         <form action={logoutAction}>

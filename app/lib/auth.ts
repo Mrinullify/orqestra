@@ -1,63 +1,64 @@
 import "server-only";
+import { auth } from "@/auth";
 import { prisma } from "./prisma";
-import { getSession } from "./session";
 import { redirect } from "next/navigation";
 
-export interface AuthorizedSession {
+export interface AuthenticatedUserSession {
     userId: string;
     organizationId: string;
     role: "HR" | "EMPLOYEE";
+    email: string;
+    name: string | null;
 }
 
 /**
- * Returns the current session after validating the user still exists and
- * belongs to the organization in the session token. Redirects to /login if invalid.
+ * Server-side authentication check using Auth.js.
+ * Verifies that:
+ * 1. User is authenticated via Auth.js session token.
+ * 2. User exists in DB, is active, and still belongs to the organization.
+ * Returns the verified user session, or redirects to /login if unauthenticated/invalid.
  */
-export async function getVerifiedSession(): Promise<AuthorizedSession> {
-    const session = await getSession();
-    if (!session) redirect("/login");
+export async function getVerifiedAuthSession(): Promise<AuthenticatedUserSession> {
+    const session = await auth();
+    if (!session || !session.user || !session.user.id) {
+        redirect("/login");
+    }
 
-    // Verify the membership still exists in the DB (not just trusting the token)
-    const membership = await prisma.membership.findUnique({
-        where: {
-            userId_organizationId: {
-                userId: session.userId,
-                organizationId: session.organizationId,
-            },
+    // Load current DB state (do not blindly trust token)
+    const dbUser = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: {
+            id: true,
+            email: true,
+            name: true,
+            isActive: true,
+            organizationId: true,
+            role: true,
         },
-        select: { role: true },
     });
 
-    if (!membership) redirect("/login");
+    if (!dbUser || !dbUser.isActive) {
+        redirect("/login");
+    }
 
     return {
-        userId: session.userId,
-        organizationId: session.organizationId,
-        role: membership.role,
+        userId: dbUser.id,
+        organizationId: dbUser.organizationId,
+        role: dbUser.role,
+        email: dbUser.email,
+        name: dbUser.name,
     };
 }
 
 /**
- * Requires an authenticated session and HR role. Redirects otherwise.
+ * Server-side HR authorization check.
+ * Ensures the authenticated user has HR role in their organization.
+ * Redirects to /dashboard if user is an EMPLOYEE.
  */
-export async function requireHRSession(): Promise<AuthorizedSession> {
-    const auth = await getVerifiedSession();
-    if (auth.role !== "HR") redirect("/dashboard");
-    return auth;
-}
-
-/**
- * Checks if an email already has an active membership in the given org.
- */
-export async function emailHasMembership(email: string, organizationId: string): Promise<boolean> {
-    const user = await prisma.user.findUnique({
-        where: { email },
-        select: {
-            memberships: {
-                where: { organizationId },
-                select: { id: true },
-            },
-        },
-    });
-    return (user?.memberships.length ?? 0) > 0;
+export async function requireHRRole(): Promise<AuthenticatedUserSession> {
+    const userSession = await getVerifiedAuthSession();
+    if (userSession.role !== "HR") {
+        redirect("/dashboard");
+    }
+    return userSession;
 }

@@ -5,6 +5,8 @@ const STATUS_CONFIG: Record<
     { label: string; className: string }
 > = {
     PENDING: { label: "Pending", className: "bg-amber-50 text-amber-700" },
+    QUEUED: { label: "Queued", className: "bg-purple-50 text-purple-700" },
+    PROCESSING: { label: "Processing", className: "bg-indigo-50 text-indigo-700" },
     SENT: { label: "Sent", className: "bg-blue-50 text-blue-700" },
     ACCEPTED: { label: "Accepted", className: "bg-emerald-50 text-emerald-700" },
     EXPIRED: { label: "Expired", className: "bg-zinc-100 text-zinc-500" },
@@ -13,7 +15,7 @@ const STATUS_CONFIG: Record<
 };
 
 export function InvitationStatusBadge({ status }: { status: InvitationStatus }) {
-    const config = STATUS_CONFIG[status];
+    const config = STATUS_CONFIG[status] ?? { label: status, className: "bg-zinc-100 text-zinc-600" };
     return (
         <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${config.className}`}>
             {config.label}

@@ -1,4 +1,4 @@
-import { requireSession } from "@/app/lib/session";
+import { getVerifiedAuthSession } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
 import Link from "next/link";
 import type { Metadata } from "next";
@@ -8,14 +8,14 @@ export const metadata: Metadata = {
 };
 
 export default async function DashboardPage() {
-    const session = await requireSession();
+    const authSession = await getVerifiedAuthSession();
 
     const org = await prisma.organization.findUnique({
-        where: { id: session.organizationId },
+        where: { id: authSession.organizationId },
         select: {
             name: true,
             _count: {
-                select: { memberships: true },
+                select: { users: true },
             },
         },
     });
@@ -30,16 +30,16 @@ export default async function DashboardPage() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <div className="rounded-xl border border-zinc-200 bg-white p-6">
                     <p className="text-sm font-medium text-zinc-500">Team members</p>
-                    <p className="mt-2 text-3xl font-bold text-zinc-900">{org?._count.memberships ?? 0}</p>
+                    <p className="mt-2 text-3xl font-bold text-zinc-900">{org?._count.users ?? 0}</p>
                 </div>
 
                 <div className="rounded-xl border border-zinc-200 bg-white p-6">
                     <p className="text-sm font-medium text-zinc-500">Your role</p>
-                    <p className="mt-2 text-xl font-bold text-zinc-900">{session.role}</p>
+                    <p className="mt-2 text-xl font-bold text-zinc-900">{authSession.role}</p>
                 </div>
             </div>
 
-            {session.role === "HR" && (
+            {authSession.role === "HR" && (
                 <div className="mt-8">
                     <h2 className="mb-4 text-base font-semibold text-zinc-900">HR Actions</h2>
                     <div className="flex flex-wrap gap-3">

@@ -1,18 +1,18 @@
 "use server";
 
 import { z } from "zod";
-import bcrypt from "bcryptjs";
-import { redirect } from "next/navigation";
-import { prisma } from "@/app/lib/prisma";
-import { createSession, deleteSession } from "@/app/lib/session";
+import { signIn, signOut } from "@/auth";
+import { AuthError } from "next-auth";
+import { checkRateLimit, RATE_LIMITS } from "@/app/lib/rate-limit";
+import { headers } from "next/headers";
 
 // ---------------------------------------------------------------------------
 // Schemas
 // ---------------------------------------------------------------------------
 
 const LoginSchema = z.object({
-    email: z.string().email({ error: "Please enter a valid email address." }).toLowerCase().trim(),
-    password: z.string().min(1, { error: "Password is required." }),
+    email: z.string().email("Please enter a valid email address.").toLowerCase().trim(),
+    password: z.string().min(1, "Password is required."),
 });
 
 export type LoginState =
@@ -20,7 +20,7 @@ export type LoginState =
     | undefined;
 
 // ---------------------------------------------------------------------------
-// Login
+// Login Action (Auth.js Credentials)
 // ---------------------------------------------------------------------------
 
 export async function loginAction(state: LoginState, formData: FormData): Promise<LoginState> {
@@ -36,55 +36,47 @@ export async function loginAction(state: LoginState, formData: FormData): Promis
 
     const { email, password } = parsed.data;
 
-    // Generic error to prevent account enumeration
-    const invalidMsg = "Invalid email or password.";
+    // Rate Limiting Check (by IP + email)
+    const reqHeaders = await headers();
+    const ip = reqHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "127.0.0.1";
+    const rateLimitKey = `login:${ip}:${email}`;
 
-    const user = await prisma.user.findUnique({
-        where: { email },
-        select: {
-            id: true,
-            passwordHash: true,
-            isActive: true,
-            organizationId: true,
-            memberships: {
-                select: { role: true, organizationId: true },
-                take: 1,
-            },
-        },
-    });
+    const rl = await checkRateLimit(
+        rateLimitKey,
+        RATE_LIMITS.LOGIN.maxRequests,
+        RATE_LIMITS.LOGIN.windowSeconds
+    );
 
-    if (!user || !user.passwordHash) {
-        return { message: invalidMsg };
+    if (!rl.success) {
+        return {
+            message: `Too many login attempts. Please wait ${rl.reset - Math.floor(Date.now() / 1000)} seconds before trying again.`,
+        };
     }
 
-    if (!user.isActive) {
-        return { message: "Your account has not been activated yet. Please check your invitation email." };
+    try {
+        await signIn("credentials", {
+            email,
+            password,
+            redirectTo: "/dashboard",
+        });
+    } catch (error) {
+        if (error instanceof AuthError) {
+            switch (error.type) {
+                case "CredentialsSignin":
+                    return { message: "Invalid email or password." };
+                default:
+                    return { message: "An authentication error occurred. Please try again." };
+            }
+        }
+        // Rethrow Next.js redirect errors (Next.js handles redirects by throwing)
+        throw error;
     }
-
-    const passwordMatch = await bcrypt.compare(password, user.passwordHash);
-    if (!passwordMatch) {
-        return { message: invalidMsg };
-    }
-
-    const membership = user.memberships[0];
-    if (!membership) {
-        return { message: "Your account is not associated with any organization." };
-    }
-
-    await createSession({
-        userId: user.id,
-        organizationId: membership.organizationId,
-        role: membership.role,
-    });
-
-    redirect("/dashboard");
 }
 
 // ---------------------------------------------------------------------------
-// Logout
+// Logout Action (Auth.js)
 // ---------------------------------------------------------------------------
 
 export async function logoutAction(): Promise<void> {
-    await deleteSession();
-    redirect("/login");
+    await signOut({ redirectTo: "/login" });
 }

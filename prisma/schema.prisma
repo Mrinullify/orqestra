@@ -30,44 +30,32 @@ model Organization {
     name        String
     users       User[]
     dataSources DataSource[]
+    invitations Invitation[]
     createdAt   DateTime     @default(now())
     updatedAt   DateTime     @updatedAt
-    memberships Membership[]
-    invitations Invitation[]
-}
-
-model Membership {
-    id             String           @id @default(cuid())
-    userId         String
-    organizationId String
-    role           OrganizationRole @default(EMPLOYEE)
-
-    user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-    organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-    createdAt DateTime @default(now())
-
-    @@unique([userId, organizationId])
-    @@index([organizationId, role])
 }
 
 model User {
-    id              String       @id @default(cuid())
+    id              String           @id @default(cuid())
     name            String?
-    email           String       @unique
+    email           String           @unique
     passwordHash    String?
-    isActive        Boolean      @default(false)
+    isActive        Boolean          @default(false)
     department      String?
+    role            OrganizationRole @default(EMPLOYEE)
     organizationId  String
-    organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-    createdAt       DateTime     @default(now())
-    updatedAt       DateTime     @updatedAt
-    memberships     Membership[]
-    sentInvitations Invitation[] @relation("InvitedByUsers")
+    organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+    createdAt       DateTime         @default(now())
+    updatedAt       DateTime         @updatedAt
+    sentInvitations Invitation[]     @relation("InvitedByUsers")
+
+    @@index([organizationId, role])
 }
 
 enum InvitationStatus {
     PENDING
+    QUEUED
+    PROCESSING
     SENT
     ACCEPTED
     EXPIRED

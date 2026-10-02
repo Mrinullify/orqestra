@@ -38,6 +38,8 @@ export type OrganizationRole = (typeof OrganizationRole)[keyof typeof Organizati
 
 export const InvitationStatus = {
   PENDING: 'PENDING',
+  QUEUED: 'QUEUED',
+  PROCESSING: 'PROCESSING',
   SENT: 'SENT',
   ACCEPTED: 'ACCEPTED',
   EXPIRED: 'EXPIRED',

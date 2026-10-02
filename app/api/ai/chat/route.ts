@@ -12,6 +12,11 @@ const requestSchema = z.object({
     message: z.string().trim().min(1).max(4000),
 });
 
+const AI_READ_ONLY_TOOLS = new Set([
+    "list_employees",
+    "find_employee",
+]);
+
 const systemPrompt = `
 You are Orqestra Copilot, an internal business operations assistant.
 
@@ -21,6 +26,7 @@ Rules:
 - You only have access to the authenticated user's organization.
 - Never ask the user for organization IDs, user IDs, database credentials, or internal secrets.
 - Do not claim an action succeeded unless the tool result confirms it.
+- The currently available AI tools are read-only. Do not claim to have changed or deleted data.
 - For unsupported requests, explain what is currently supported.
 - Keep responses concise and useful.
 `.trim();
@@ -38,14 +44,16 @@ function schemaToJsonSchema(schema: z.ZodTypeAny): Record<string, unknown> {
 }
 
 function buildToolDefinitions(): LlmTool[] {
-    return Array.from(toolRegistry.values()).map((tool) => ({
-        type: "function",
-        function: {
-            name: tool.name,
-            description: tool.description,
-            parameters: schemaToJsonSchema(tool.inputSchema),
-        },
-    }));
+    return Array.from(toolRegistry.values())
+        .filter((tool) => AI_READ_ONLY_TOOLS.has(tool.name))
+        .map((tool) => ({
+            type: "function",
+            function: {
+                name: tool.name,
+                description: tool.description,
+                parameters: schemaToJsonSchema(tool.inputSchema),
+            },
+        }));
 }
 
 function safeToolError(error: unknown): string {

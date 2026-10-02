@@ -13,7 +13,7 @@ const employeeSelect = {
 
 export async function listEmployees(context: ServiceContext) {
     return prisma.user.findMany({
-        where: { organizationId: context.organizationId },
+        where: { organizationId: context.organizationId, role: "EMPLOYEE" },
         select: employeeSelect,
         orderBy: { createdAt: "desc" },
     });
@@ -28,6 +28,7 @@ export async function findEmployee(
     return prisma.user.findFirst({
         where: {
             organizationId: context.organizationId,
+            role: "EMPLOYEE",
             ...(input.employeeId
                 ? { id: input.employeeId }
                 : { email: input.email!.trim().toLowerCase() }),
@@ -40,7 +41,7 @@ export async function deactivateEmployee(context: ServiceContext, employeeId: st
     requireHR(context);
 
     const employee = await prisma.user.findFirst({
-        where: { id: employeeId, organizationId: context.organizationId },
+        where: { id: employeeId, organizationId: context.organizationId, role: "EMPLOYEE" },
         select: { id: true, email: true, isActive: true },
     });
 

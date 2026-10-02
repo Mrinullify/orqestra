@@ -54,26 +54,47 @@ function safeToolError(error: unknown): string {
     }
 
     if (error instanceof Error) {
-        return error.message;
+        const safeMessages = new Set([
+            "Employee not found.",
+            "employeeId or email is required.",
+            "Invalid tool arguments.",
+            "You are not authorized to perform this action.",
+        ]);
+
+        if (safeMessages.has(error.message)) {
+            return error.message;
+        }
     }
 
     return "Tool execution failed.";
 }
 
 export async function POST(request: Request) {
+    let body: unknown;
+
     try {
-        const body = await request.json();
-        const parsed = requestSchema.safeParse(body);
+        body = await request.json();
+    } catch {
+        return NextResponse.json(
+            { error: "Invalid JSON request body." },
+            { status: 400 },
+        );
+    }
 
-        if (!parsed.success) {
-            return NextResponse.json(
-                { error: "Invalid request. message is required." },
-                { status: 400 },
-            );
-        }
+    const parsed = requestSchema.safeParse(body);
 
-        const context = await getToolContext("AI");
+    if (!parsed.success) {
+        return NextResponse.json(
+            { error: "Invalid request. message is required." },
+            { status: 400 },
+        );
+    }
 
+    // Keep authentication outside the application-error catch so Auth.js
+    // redirect behavior is preserved for unauthenticated requests.
+    const context = await getToolContext("AI");
+
+    try {
         let messages: LlmMessage[] = [
             { role: "system", content: systemPrompt },
             { role: "user", content: parsed.data.message },
@@ -108,6 +129,7 @@ export async function POST(request: Request) {
                         role: "tool",
                         tool_call_id: toolCall.id,
                         content: JSON.stringify({
+                            success: false,
                             error: "Invalid tool arguments.",
                         }),
                     });
@@ -149,13 +171,12 @@ export async function POST(request: Request) {
             },
             { status: 500 },
         );
-    } catch (error) {
-        if (error instanceof Error && error.message === "NEXT_REDIRECT") {
-            throw error;
-        }
-
+    } catch {
         return NextResponse.json(
-            { error: "Unable to process the AI request." },
+            {
+                error: "Unable to process the AI request.",
+                requestId: context.requestId,
+            },
             { status: 500 },
         );
     }

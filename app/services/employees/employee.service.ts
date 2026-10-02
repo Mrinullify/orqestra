@@ -6,19 +6,15 @@ import { requireApprovedAction } from "@/app/lib/ai/approvals";
 import { writeAuditLog } from "@/app/lib/ai/audit";
 import type { ServiceContext } from "@/app/lib/ai/types";
 
+const employeeSelect = {
+    id: true, name: true, email: true, department: true, role: true,
+    isActive: true, createdAt: true, updatedAt: true,
+} as const;
+
 export async function listEmployees(context: ServiceContext) {
     return prisma.user.findMany({
         where: { organizationId: context.organizationId },
-        select: {
-            id: true,
-            name: true,
-            email: true,
-            department: true,
-            role: true,
-            isActive: true,
-            createdAt: true,
-            updatedAt: true,
-        },
+        select: employeeSelect,
         orderBy: { createdAt: "desc" },
     });
 }
@@ -27,9 +23,7 @@ export async function findEmployee(
     context: ServiceContext,
     input: { employeeId?: string; email?: string },
 ) {
-    if (!input.employeeId && !input.email) {
-        throw new Error("employeeId or email is required.");
-    }
+    if (!input.employeeId && !input.email) throw new Error("employeeId or email is required.");
 
     return prisma.user.findFirst({
         where: {
@@ -38,21 +32,11 @@ export async function findEmployee(
                 ? { id: input.employeeId }
                 : { email: input.email!.trim().toLowerCase() }),
         },
-        select: {
-            id: true,
-            name: true,
-            email: true,
-            department: true,
-            role: true,
-            isActive: true,
-        },
+        select: employeeSelect,
     });
 }
 
-export async function deactivateEmployee(
-    context: ServiceContext,
-    employeeId: string,
-) {
+export async function deactivateEmployee(context: ServiceContext, employeeId: string) {
     requireHR(context);
 
     const employee = await prisma.user.findFirst({
@@ -80,10 +64,7 @@ export async function deactivateEmployee(
     return updated;
 }
 
-export async function deleteEmployee(
-    context: ServiceContext,
-    employeeId: string,
-) {
+export async function deleteEmployee(context: ServiceContext, employeeId: string) {
     requireHR(context);
     await requireApprovedAction(context, "DELETE_EMPLOYEE");
 
@@ -94,20 +75,27 @@ export async function deleteEmployee(
 
     if (!employee) throw new Error("Employee not found.");
 
-    await prisma.user.delete({
-        where: { id: employee.id },
-    });
+    await prisma.user.delete({ where: { id: employee.id } });
 
     await writeAuditLog({
         context,
         action: "DELETE_EMPLOYEE",
         resourceType: "USER",
         resourceId: employee.id,
-        metadata: {
-            email: employee.email,
-            name: employee.name,
-        },
+        metadata: { email: employee.email, name: employee.name },
     });
+
+    if (context.approvalId) {
+        await prisma.actionApproval.updateMany({
+            where: {
+                id: context.approvalId,
+                organizationId: context.organizationId,
+                requestedById: context.userId,
+                status: "APPROVED",
+            },
+            data: { status: "EXECUTED", executedAt: new Date() },
+        });
+    }
 
     return { deleted: true, employeeId: employee.id };
 }

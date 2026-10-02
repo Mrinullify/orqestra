@@ -26,13 +26,15 @@ enum OrganizationRole {
 }
 
 model Organization {
-    id          String       @id @default(cuid())
-    name        String
-    users       User[]
-    dataSources DataSource[]
-    invitations Invitation[]
-    createdAt   DateTime     @default(now())
-    updatedAt   DateTime     @updatedAt
+    id             String          @id @default(cuid())
+    name           String
+    users          User[]
+    dataSources    DataSource[]
+    invitations    Invitation[]
+    auditLogs      AuditLog[]
+    actionApprovals ActionApproval[]
+    createdAt      DateTime        @default(now())
+    updatedAt      DateTime        @updatedAt
 }
 
 model User {
@@ -48,6 +50,8 @@ model User {
     createdAt       DateTime         @default(now())
     updatedAt       DateTime         @updatedAt
     sentInvitations Invitation[]     @relation("InvitedByUsers")
+    auditLogs       AuditLog[]       @relation("AuditActor")
+    actionApprovals ActionApproval[] @relation("ApprovalRequester")
 
     @@index([organizationId, role])
 }
@@ -85,6 +89,55 @@ model Invitation {
     @@index([status])
 }
 
+model AuditLog {
+    id             String       @id @default(cuid())
+    organizationId String
+    organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+    actorId        String?
+    actor          User?        @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+    action         String
+    resourceType   String
+    resourceId     String?
+    metadata       Json?
+    success        Boolean      @default(true)
+    requestId      String
+    createdAt      DateTime     @default(now())
+
+    @@index([organizationId, createdAt])
+    @@index([organizationId, action, createdAt])
+    @@index([organizationId, resourceType, resourceId])
+    @@index([requestId])
+}
+
+enum ActionApprovalStatus {
+    PENDING
+    APPROVED
+    REJECTED
+    EXPIRED
+    EXECUTED
+}
+
+model ActionApproval {
+    id             String               @id @default(cuid())
+    organizationId String
+    organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+    requestedById  String
+    requestedBy    User                 @relation("ApprovalRequester", fields: [requestedById], references: [id], onDelete: Cascade)
+    action         String
+    resourceType   String
+    resourceId     String?
+    payload        Json?
+    status         ActionApprovalStatus @default(PENDING)
+    expiresAt      DateTime
+    approvedAt     DateTime?
+    executedAt     DateTime?
+    createdAt      DateTime             @default(now())
+    updatedAt      DateTime             @updatedAt
+
+    @@index([organizationId, status, createdAt])
+    @@index([organizationId, requestedById, status])
+}
+
 model DataSource {
     id             String         @id @default(cuid())
     name           String
@@ -97,7 +150,7 @@ model DataSource {
     organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
     imports        DataImport[]
     createdAt      DateTime       @default(now())
-    updatedAt      DateTime       @updatedAt
+    updatedAt      DateTime         @updatedAt
 
     @@index([organizationId])
 }

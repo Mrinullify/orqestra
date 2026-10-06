@@ -34,6 +34,12 @@ const employeeListOutputSchema = z.object({
     employees: z.array(employeeOutputSchema),
 });
 
+const employeeActionOutputSchema = z.object({
+    id: z.string(),
+    email: z.string(),
+    isActive: z.boolean(),
+});
+
 export async function mcpListEmployees() {
     const context = await getToolContext("MCP");
     const employees = await listEmployees(context);
@@ -90,5 +96,6 @@ export {
     employeeIdSchema,
     employeeOutputSchema,
     employeeListOutputSchema,
+    employeeActionOutputSchema,
     findEmployeeSchema,
 };

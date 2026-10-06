@@ -31,7 +31,7 @@ Rules:
 - Keep responses concise and useful.
 `.trim();
 
-function schemaToJsonSchema(schema: z.ZodTypeAny): Record<string, unknown> {
+function schemaToJsonSchema(schema: z.ZodType): Record<string, unknown> {
     const zAny = schema as unknown as {
         toJSONSchema?: () => Record<string, unknown>;
     };
@@ -103,7 +103,7 @@ export async function POST(request: Request) {
     const context = await getToolContext("AI");
 
     try {
-        let messages: LlmMessage[] = [
+        const messages: LlmMessage[] = [
             { role: "system", content: systemPrompt },
             { role: "user", content: parsed.data.message },
         ];

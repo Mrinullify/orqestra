@@ -57,6 +57,16 @@ export type User = Prisma.UserModel
  */
 export type Invitation = Prisma.InvitationModel
 /**
+ * Model AuditLog
+ * 
+ */
+export type AuditLog = Prisma.AuditLogModel
+/**
+ * Model ActionApproval
+ * 
+ */
+export type ActionApproval = Prisma.ActionApprovalModel
+/**
  * Model DataSource
  * 
  */

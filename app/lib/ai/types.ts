@@ -15,7 +15,7 @@ export interface ToolContext extends ServiceContext {
     source: "UI" | "AI";
 }
 
-export interface ToolDefinition<TInput extends z.ZodTypeAny = z.ZodTypeAny, TResult = unknown> {
+export interface ToolDefinition<TInput extends z.ZodType = z.ZodType, TResult = unknown> {
     name: string;
     description: string;
     inputSchema: TInput;

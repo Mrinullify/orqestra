@@ -400,6 +400,8 @@ export const ModelName = {
   Organization: 'Organization',
   User: 'User',
   Invitation: 'Invitation',
+  AuditLog: 'AuditLog',
+  ActionApproval: 'ActionApproval',
   DataSource: 'DataSource',
   DataImport: 'DataImport',
   ColumnMapping: 'ColumnMapping'
@@ -418,7 +420,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "organization" | "user" | "invitation" | "dataSource" | "dataImport" | "columnMapping"
+    modelProps: "organization" | "user" | "invitation" | "auditLog" | "actionApproval" | "dataSource" | "dataImport" | "columnMapping"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -641,6 +643,154 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.InvitationCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.InvitationCountAggregateOutputType> | number
+        }
+      }
+    }
+    AuditLog: {
+      payload: Prisma.$AuditLogPayload<ExtArgs>
+      fields: Prisma.AuditLogFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.AuditLogFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuditLogPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.AuditLogFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuditLogPayload>
+        }
+        findFirst: {
+          args: Prisma.AuditLogFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuditLogPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.AuditLogFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuditLogPayload>
+        }
+        findMany: {
+          args: Prisma.AuditLogFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuditLogPayload>[]
+        }
+        create: {
+          args: Prisma.AuditLogCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuditLogPayload>
+        }
+        createMany: {
+          args: Prisma.AuditLogCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.AuditLogCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuditLogPayload>[]
+        }
+        delete: {
+          args: Prisma.AuditLogDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuditLogPayload>
+        }
+        update: {
+          args: Prisma.AuditLogUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuditLogPayload>
+        }
+        deleteMany: {
+          args: Prisma.AuditLogDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.AuditLogUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.AuditLogUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuditLogPayload>[]
+        }
+        upsert: {
+          args: Prisma.AuditLogUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuditLogPayload>
+        }
+        aggregate: {
+          args: Prisma.AuditLogAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateAuditLog>
+        }
+        groupBy: {
+          args: Prisma.AuditLogGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AuditLogGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.AuditLogCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AuditLogCountAggregateOutputType> | number
+        }
+      }
+    }
+    ActionApproval: {
+      payload: Prisma.$ActionApprovalPayload<ExtArgs>
+      fields: Prisma.ActionApprovalFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.ActionApprovalFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ActionApprovalPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.ActionApprovalFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ActionApprovalPayload>
+        }
+        findFirst: {
+          args: Prisma.ActionApprovalFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ActionApprovalPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.ActionApprovalFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ActionApprovalPayload>
+        }
+        findMany: {
+          args: Prisma.ActionApprovalFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ActionApprovalPayload>[]
+        }
+        create: {
+          args: Prisma.ActionApprovalCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ActionApprovalPayload>
+        }
+        createMany: {
+          args: Prisma.ActionApprovalCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.ActionApprovalCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ActionApprovalPayload>[]
+        }
+        delete: {
+          args: Prisma.ActionApprovalDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ActionApprovalPayload>
+        }
+        update: {
+          args: Prisma.ActionApprovalUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ActionApprovalPayload>
+        }
+        deleteMany: {
+          args: Prisma.ActionApprovalDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.ActionApprovalUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.ActionApprovalUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ActionApprovalPayload>[]
+        }
+        upsert: {
+          args: Prisma.ActionApprovalUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ActionApprovalPayload>
+        }
+        aggregate: {
+          args: Prisma.ActionApprovalAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateActionApproval>
+        }
+        groupBy: {
+          args: Prisma.ActionApprovalGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ActionApprovalGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.ActionApprovalCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ActionApprovalCountAggregateOutputType> | number
         }
       }
     }
@@ -951,6 +1101,41 @@ export const InvitationScalarFieldEnum = {
 export type InvitationScalarFieldEnum = (typeof InvitationScalarFieldEnum)[keyof typeof InvitationScalarFieldEnum]
 
 
+export const AuditLogScalarFieldEnum = {
+  id: 'id',
+  organizationId: 'organizationId',
+  actorId: 'actorId',
+  action: 'action',
+  resourceType: 'resourceType',
+  resourceId: 'resourceId',
+  metadata: 'metadata',
+  success: 'success',
+  requestId: 'requestId',
+  createdAt: 'createdAt'
+} as const
+
+export type AuditLogScalarFieldEnum = (typeof AuditLogScalarFieldEnum)[keyof typeof AuditLogScalarFieldEnum]
+
+
+export const ActionApprovalScalarFieldEnum = {
+  id: 'id',
+  organizationId: 'organizationId',
+  requestedById: 'requestedById',
+  action: 'action',
+  resourceType: 'resourceType',
+  resourceId: 'resourceId',
+  payload: 'payload',
+  status: 'status',
+  expiresAt: 'expiresAt',
+  approvedAt: 'approvedAt',
+  executedAt: 'executedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ActionApprovalScalarFieldEnum = (typeof ActionApprovalScalarFieldEnum)[keyof typeof ActionApprovalScalarFieldEnum]
+
+
 export const DataSourceScalarFieldEnum = {
   id: 'id',
   name: 'name',
@@ -1109,6 +1294,34 @@ export type ListEnumInvitationStatusFieldRefInput<$PrismaModel> = FieldRefInputT
 
 
 /**
+ * Reference to a field of type 'Json'
+ */
+export type JsonFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Json'>
+    
+
+
+/**
+ * Reference to a field of type 'QueryMode'
+ */
+export type EnumQueryModeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'QueryMode'>
+    
+
+
+/**
+ * Reference to a field of type 'ActionApprovalStatus'
+ */
+export type EnumActionApprovalStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ActionApprovalStatus'>
+    
+
+
+/**
+ * Reference to a field of type 'ActionApprovalStatus[]'
+ */
+export type ListEnumActionApprovalStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ActionApprovalStatus[]'>
+    
+
+
+/**
  * Reference to a field of type 'DataSourceType'
  */
 export type EnumDataSourceTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'DataSourceType'>
@@ -1161,20 +1374,6 @@ export type IntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'In
  * Reference to a field of type 'Int[]'
  */
 export type ListIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Int[]'>
-    
-
-
-/**
- * Reference to a field of type 'Json'
- */
-export type JsonFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Json'>
-    
-
-
-/**
- * Reference to a field of type 'QueryMode'
- */
-export type EnumQueryModeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'QueryMode'>
     
 
 
@@ -1345,6 +1544,8 @@ export type GlobalOmitConfig = {
   organization?: Prisma.OrganizationOmit
   user?: Prisma.UserOmit
   invitation?: Prisma.InvitationOmit
+  auditLog?: Prisma.AuditLogOmit
+  actionApproval?: Prisma.ActionApprovalOmit
   dataSource?: Prisma.DataSourceOmit
   dataImport?: Prisma.DataImportOmit
   columnMapping?: Prisma.ColumnMappingOmit

@@ -5,11 +5,17 @@ import type { ToolDefinition, ToolContext } from "@/app/lib/ai/types";
 import { requireRole } from "@/app/lib/ai/permissions";
 import { ApprovalRequiredError, requireApprovedAction } from "@/app/lib/ai/approvals";
 
-export const toolRegistry = new Map<string, ToolDefinition>(
+type RegisteredTool = ToolDefinition;
+
+export const toolRegistry = new Map<string, RegisteredTool>(
     employeeTools.map((tool) => [tool.name, tool]),
 );
 
-export async function executeTool(name: string, rawInput: unknown, context: ToolContext) {
+export async function executeTool(
+    name: string,
+    rawInput: unknown,
+    context: ToolContext,
+) {
     const tool = toolRegistry.get(name);
     if (!tool) throw new Error("Unknown tool: " + name);
 
@@ -20,7 +26,7 @@ export async function executeTool(name: string, rawInput: unknown, context: Tool
 
     if (tool.requiresApproval) {
         if (!context.approvalId) throw new ApprovalRequiredError("");
-        await requireApprovedAction(context, name === "delete_employee" ? "DELETE_EMPLOYEE" : name);
+        await requireApprovedAction(context, tool.name);
     }
 
     return tool.execute(parsed.data, context);

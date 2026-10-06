@@ -54,6 +54,8 @@ export const ModelName = {
   Organization: 'Organization',
   User: 'User',
   Invitation: 'Invitation',
+  AuditLog: 'AuditLog',
+  ActionApproval: 'ActionApproval',
   DataSource: 'DataSource',
   DataImport: 'DataImport',
   ColumnMapping: 'ColumnMapping'
@@ -119,6 +121,41 @@ export const InvitationScalarFieldEnum = {
 } as const
 
 export type InvitationScalarFieldEnum = (typeof InvitationScalarFieldEnum)[keyof typeof InvitationScalarFieldEnum]
+
+
+export const AuditLogScalarFieldEnum = {
+  id: 'id',
+  organizationId: 'organizationId',
+  actorId: 'actorId',
+  action: 'action',
+  resourceType: 'resourceType',
+  resourceId: 'resourceId',
+  metadata: 'metadata',
+  success: 'success',
+  requestId: 'requestId',
+  createdAt: 'createdAt'
+} as const
+
+export type AuditLogScalarFieldEnum = (typeof AuditLogScalarFieldEnum)[keyof typeof AuditLogScalarFieldEnum]
+
+
+export const ActionApprovalScalarFieldEnum = {
+  id: 'id',
+  organizationId: 'organizationId',
+  requestedById: 'requestedById',
+  action: 'action',
+  resourceType: 'resourceType',
+  resourceId: 'resourceId',
+  payload: 'payload',
+  status: 'status',
+  expiresAt: 'expiresAt',
+  approvedAt: 'approvedAt',
+  executedAt: 'executedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ActionApprovalScalarFieldEnum = (typeof ActionApprovalScalarFieldEnum)[keyof typeof ActionApprovalScalarFieldEnum]
 
 
 export const DataSourceScalarFieldEnum = {

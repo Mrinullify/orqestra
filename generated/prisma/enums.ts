@@ -48,3 +48,14 @@ export const InvitationStatus = {
 } as const
 
 export type InvitationStatus = (typeof InvitationStatus)[keyof typeof InvitationStatus]
+
+
+export const ActionApprovalStatus = {
+  PENDING: 'PENDING',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+  EXPIRED: 'EXPIRED',
+  EXECUTED: 'EXECUTED'
+} as const
+
+export type ActionApprovalStatus = (typeof ActionApprovalStatus)[keyof typeof ActionApprovalStatus]

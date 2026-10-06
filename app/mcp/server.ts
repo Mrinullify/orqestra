@@ -7,6 +7,7 @@ import {
     employeeIdSchema,
     employeeListOutputSchema,
     employeeOutputSchema,
+    employeeActionOutputSchema,
     findEmployeeSchema,
     deleteEmployeeMcpSchema,
     mcpDeactivateEmployee,
@@ -85,7 +86,7 @@ export function createOrqestraMcpServer() {
             title: "Deactivate Employee",
             description: "Deactivate an employee without deleting their record. HR only.",
             inputSchema: employeeIdSchema,
-            outputSchema: employeeOutputSchema,
+            outputSchema: employeeActionOutputSchema,
             annotations: {
                 readOnlyHint: false,
                 destructiveHint: false,

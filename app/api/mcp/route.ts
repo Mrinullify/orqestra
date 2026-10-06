@@ -6,7 +6,7 @@ import { createOrqestraMcpServer } from "@/app/mcp/server";
 
 export const runtime = "nodejs";
 
-const handler = createMcpHandler(createOrqestraMcpServer);
+const handler = createMcpHandler(() => createOrqestraMcpServer());
 
 export async function GET(request: Request) {
     return handler.fetch(request);

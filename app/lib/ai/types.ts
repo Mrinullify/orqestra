@@ -12,7 +12,7 @@ export interface ServiceContext {
 }
 
 export interface ToolContext extends ServiceContext {
-    source: "UI" | "AI";
+    source: "UI" | "AI" | "MCP";
 }
 
 export interface ToolDefinition<TInput extends z.ZodType = z.ZodType, TResult = unknown> {

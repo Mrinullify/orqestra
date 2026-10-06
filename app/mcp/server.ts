@@ -16,18 +16,10 @@ import {
 } from "./tools/employees";
 
 export function createOrqestraMcpServer() {
-    const server = new McpServer(
-        {
-            name: "orqestra",
-            version: "1.0.0",
-            description: "Orqestra HR operations MCP server.",
-        },
-        {
-            capabilities: {
-                tools: {},
-            },
-        },
-    );
+    const server = new McpServer({
+        name: "orqestra",
+        version: "1.0.0",
+    });
 
     server.registerTool(
         "list_employees",

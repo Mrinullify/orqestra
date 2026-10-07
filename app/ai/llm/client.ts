@@ -3,13 +3,13 @@ import "server-only";
 import { z } from "zod";
 
 const llmConfigSchema = z.object({
-    LLM_API_KEY: z.string().min(1),
-    LLM_BASE_URL: z.string().url().default("https://api.openai.com/v1"),
-    LLM_MODEL: z.string().min(1).default("gpt-4.1-mini"),
+    GROQ_API_KEY: z.string().min(1),
+    LLM_BASE_URL: z.string().url().default("https://api.groq.com/openai/v1"),
+    LLM_MODEL: z.string().min(1).default("openai/gpt-oss-20b"),
 });
 
 const config = llmConfigSchema.parse({
-    LLM_API_KEY: process.env.LLM_API_KEY,
+    GROQ_API_KEY: process.env.GROQ_API_KEY,
     LLM_BASE_URL: process.env.LLM_BASE_URL ?? "https://api.openai.com/v1",
     LLM_MODEL: process.env.LLM_MODEL ?? "gpt-4.1-mini",
 });
@@ -53,7 +53,7 @@ async function callChatCompletions(
         method: "POST",
         headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${config.LLM_API_KEY}`,
+            Authorization: `Bearer ${config.GROQ_API_KEY}`,
         },
         body: JSON.stringify({
             model: config.LLM_MODEL,

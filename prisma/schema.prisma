@@ -149,6 +149,7 @@ model DataSource {
     organizationId String
     organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
     imports        DataImport[]
+    records        DataRecord[]
     createdAt      DateTime       @default(now())
     updatedAt      DateTime         @updatedAt
 
@@ -167,6 +168,7 @@ model DataImport {
     startedAt      DateTime?
     completedAt    DateTime?
     columnMappings ColumnMapping[]
+    records        DataRecord[]
     createdAt      DateTime        @default(now())
 
     @@index([dataSourceId, createdAt])
@@ -187,4 +189,19 @@ model ColumnMapping {
 
     @@unique([dataImportId, originalName])
     @@index([dataImportId])
+}
+model DataRecord {
+    id             String     @id @default(cuid())
+    organizationId String
+    dataSourceId   String
+    dataImportId   String
+    rowNumber      Int
+    data           Json
+    createdAt      DateTime   @default(now())
+    dataSource     DataSource @relation(fields: [dataSourceId], references: [id], onDelete: Cascade)
+    dataImport     DataImport @relation(fields: [dataImportId], references: [id], onDelete: Cascade)
+
+    @@unique([dataImportId, rowNumber])
+    @@index([organizationId, dataSourceId])
+    @@index([organizationId, dataImportId])
 }

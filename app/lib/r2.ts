@@ -1,7 +1,6 @@
 import "server-only";
 
 import {
-    DeleteObjectCommand,
     GetObjectCommand,
     HeadObjectCommand,
     PutObjectCommand,
@@ -9,32 +8,46 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-const accountId = process.env.R2_ACCOUNT_ID;
-const accessKeyId = process.env.R2_ACCESS_KEY_ID;
-const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
-const bucket = process.env.R2_BUCKET_NAME;
+function getR2Config() {
+    const accountId = process.env.R2_ACCOUNT_ID;
+    const accessKeyId = process.env.R2_ACCESS_KEY_ID;
+    const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
+    const bucket = process.env.R2_BUCKET_NAME;
 
-if (!accountId || !accessKeyId || !secretAccessKey || !bucket) {
-    throw new Error("R2 storage environment variables are not configured.");
-}
+    if (!accountId || !accessKeyId || !secretAccessKey || !bucket) {
+        throw new Error("R2 storage environment variables are not configured.");
+    }
 
-const endpoint = `https://${accountId}.r2.cloudflarestorage.com`;
-
-const client = new S3Client({
-    region: "auto",
-    endpoint,
-    credentials: {
+    return {
+        endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
         accessKeyId,
         secretAccessKey,
-    },
-});
+        bucket,
+    };
+}
 
-export const R2_BUCKET_NAME = bucket;
+function getR2Client() {
+    const config = getR2Config();
+
+    return {
+        client: new S3Client({
+            region: "auto",
+            endpoint: config.endpoint,
+            credentials: {
+                accessKeyId: config.accessKeyId,
+                secretAccessKey: config.secretAccessKey,
+            },
+        }),
+        bucket: config.bucket,
+    };
+}
 
 export async function createUploadUrl(params: {
     key: string;
     contentType: string;
 }) {
+    const { client, bucket } = getR2Client();
+
     const command = new PutObjectCommand({
         Bucket: bucket,
         Key: params.key,
@@ -45,6 +58,8 @@ export async function createUploadUrl(params: {
 }
 
 export async function getObjectBytes(key: string): Promise<Uint8Array> {
+    const { client, bucket } = getR2Client();
+
     const response = await client.send(
         new GetObjectCommand({
             Bucket: bucket,
@@ -60,17 +75,10 @@ export async function getObjectBytes(key: string): Promise<Uint8Array> {
 }
 
 export async function headObject(key: string) {
+    const { client, bucket } = getR2Client();
+
     return client.send(
         new HeadObjectCommand({
-            Bucket: bucket,
-            Key: key,
-        }),
-    );
-}
-
-export async function deleteObject(key: string) {
-    await client.send(
-        new DeleteObjectCommand({
             Bucket: bucket,
             Key: key,
         }),

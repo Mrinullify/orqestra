@@ -28,9 +28,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
                                 Copilot
                             </Link>
                             {authSession.role === "HR" && (
-                                <Link href="/dashboard/employees" className="text-zinc-500 transition hover:text-zinc-900">
-                                    Employees
-                                </Link>
+                                <>
+                                    <Link href="/dashboard/employees" className="text-zinc-500 transition hover:text-zinc-900">
+                                        Employees
+                                    </Link>
+                                    <Link href="/dashboard/data" className="text-zinc-500 transition hover:text-zinc-900">
+                                        Company Data
+                                    </Link>
+                                </>
                             )}
                         </div>
                     </div>

@@ -179,7 +179,9 @@ export async function POST(request: Request) {
             },
             { status: 500 },
         );
-    } catch {
+    } catch (error) {
+        console.error("AI chat request failed:", error);
+
         return NextResponse.json(
             {
                 error: "Unable to process the AI request.",

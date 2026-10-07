@@ -4,14 +4,14 @@ import { z } from "zod";
 
 const llmConfigSchema = z.object({
     GROQ_API_KEY: z.string().min(1),
-    LLM_BASE_URL: z.string().url().default("https://api.groq.com/openai/v1"),
-    LLM_MODEL: z.string().min(1).default("openai/gpt-oss-20b"),
+    GROQ_API_URL: z.string().url().default("https://api.groq.com/openai/v1"),
+    GROQ_MODEL: z.string().min(1).default("openai/gpt-oss-20b"),
 });
 
 const config = llmConfigSchema.parse({
     GROQ_API_KEY: process.env.GROQ_API_KEY,
-    LLM_BASE_URL: process.env.LLM_BASE_URL ?? "https://api.openai.com/v1",
-    LLM_MODEL: process.env.LLM_MODEL ?? "gpt-4.1-mini",
+    GROQ_API_URL: process.env.GROQ_API_URL ?? "https://api.groq.com/openai/v1",
+    GROQ_MODEL: process.env.GROQ_MODEL ?? "openai/gpt-oss-20b",
 });
 
 export type LlmTool = {
@@ -49,14 +49,14 @@ async function callChatCompletions(
     messages: LlmMessage[],
     tools: LlmTool[] = [],
 ): Promise<LlmResponse> {
-    const response = await fetch(`${config.LLM_BASE_URL}/chat/completions`, {
+    const response = await fetch(`${config.GROQ_API_URL}/chat/completions`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${config.GROQ_API_KEY}`,
         },
         body: JSON.stringify({
-            model: config.LLM_MODEL,
+            model: config.GROQ_MODEL,
             messages,
             tools,
             tool_choice: tools.length > 0 ? "auto" : undefined,

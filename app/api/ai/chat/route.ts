@@ -25,6 +25,8 @@ const AI_READ_ONLY_TOOLS = new Set([
     "list_employees",
     "find_employee",
     "query_company_data",
+    "list_data_sources",
+    "inspect_data_source",
 ]);
 
 const systemPrompt = `
@@ -40,6 +42,9 @@ Rules:
 - For questions about uploaded CSV/Excel data (including salary, department, name, counts, or other imported columns), ALWAYS use query_company_data. Do not use list_employees or find_employee for values that come from uploaded company data.
 - For a person lookup in uploaded data, use query_company_data with search set to the person name, such as search="Aman".
 - Use filters with the uploaded column name and value for exact matching.
+- When the user asks what datasets, files, or uploaded company data are available, use list_data_sources first.
+- When you need the columns or structure of a specific dataset, use inspect_data_source after identifying its dataSourceId.
+- Use query_company_data to retrieve actual rows or answer questions about values in uploaded data.
 - For broad text lookup, use search.
 - For unsupported requests, explain what is currently supported.
 - Keep responses concise and useful.

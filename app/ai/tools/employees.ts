@@ -9,15 +9,15 @@ import {
     listEmployees,
 } from "@/app/services/employees/employee.service";
 
-const listEmployeesSchema = z.object({}).strict();
-const findEmployeeSchema = z.object({
+export const listEmployeesSchema = z.object({}).strict();
+export const findEmployeeSchema = z.object({
     employeeId: z.string().min(1).optional(),
     email: z.string().email().optional(),
 }).refine((value) => value.employeeId || value.email, {
     message: "employeeId or email is required",
 });
 
-const employeeIdSchema = z.object({ employeeId: z.string().min(1) });
+export const employeeIdSchema = z.object({ employeeId: z.string().min(1) });
 
 type ListEmployeesInput = z.infer<typeof listEmployeesSchema>;
 type FindEmployeeInput = z.infer<typeof findEmployeeSchema>;

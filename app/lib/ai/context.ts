@@ -1,11 +1,13 @@
 import "server-only";
 
 import crypto from "crypto";
-import { getVerifiedAuthSession } from "@/app/lib/auth";
+import { getVerifiedAuthSession, getVerifiedMcpAuthSession } from "@/app/lib/auth";
 import type { ToolContext } from "./types";
 
 export async function getToolContext(source: ToolContext["source"]): Promise<ToolContext> {
-    const session = await getVerifiedAuthSession();
+    const session = source === "MCP"
+        ? await getVerifiedMcpAuthSession()
+        : await getVerifiedAuthSession();
     return {
         userId: session.userId,
         organizationId: session.organizationId,

@@ -1,6 +1,13 @@
 import "server-only";
 
 import { employeeTools } from "./employees";
+import { queryCompanyDataTool } from "./company-data";
+import { listDataSourcesTool, inspectDataSourceTool } from "./data-sources";
+import {
+    aggregateCompanyDataTool,
+    compareCompanyDataTool,
+    groupCompanyDataTool,
+} from "./analytics";
 import type { ToolDefinition, ToolContext } from "@/app/lib/ai/types";
 import { requireRole } from "@/app/lib/ai/permissions";
 import { ApprovalRequiredError, requireApprovedAction } from "@/app/lib/ai/approvals";
@@ -8,7 +15,7 @@ import { ApprovalRequiredError, requireApprovedAction } from "@/app/lib/ai/appro
 type RegisteredTool = ToolDefinition;
 
 export const toolRegistry = new Map<string, RegisteredTool>(
-    employeeTools.map((tool) => [tool.name, tool]),
+    [...employeeTools, queryCompanyDataTool, listDataSourcesTool, inspectDataSourceTool, aggregateCompanyDataTool, compareCompanyDataTool, groupCompanyDataTool].map((tool) => [tool.name, tool]),
 );
 
 export async function executeTool(

@@ -3,7 +3,8 @@
 import { useState, useRef, useActionState } from "react";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
-import { createBulkInvitationsAction, type EmployeeRow, type ValidationResult, type InviteState } from "@/app/actions/invitations";
+import { createBulkInvitationsAction } from "@/app/actions/invitations";
+import type { EmployeeRow, ValidationResult, InviteState } from "@/app/lib/validation/invitations";
 
 type Step = "upload" | "preview" | "confirm" | "done";
 

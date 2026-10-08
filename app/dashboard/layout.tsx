@@ -20,28 +20,36 @@ export default async function DashboardLayout({ children }: { children: React.Re
                         <Link href="/dashboard" className="text-base font-bold tracking-tight text-zinc-900">
                             Orqestra
                         </Link>
-                        <div className="hidden sm:flex items-center gap-4 text-sm">
-                            <Link href="/dashboard" className="text-zinc-500 hover:text-zinc-900 transition">
+                        <div className="hidden items-center gap-4 text-sm sm:flex">
+                            <Link href="/dashboard" className="text-zinc-500 transition hover:text-zinc-900">
                                 Dashboard
                             </Link>
+                            <Link href="/dashboard/copilot" className="text-zinc-500 transition hover:text-zinc-900">
+                                Copilot
+                            </Link>
                             {authSession.role === "HR" && (
-                                <Link href="/dashboard/employees" className="text-zinc-500 hover:text-zinc-900 transition">
-                                    Employees
-                                </Link>
+                                <>
+                                    <Link href="/dashboard/employees" className="text-zinc-500 transition hover:text-zinc-900">
+                                        Employees
+                                    </Link>
+                                    <Link href="/dashboard/data" className="text-zinc-500 transition hover:text-zinc-900">
+                                        Company Data
+                                    </Link>
+                                </>
                             )}
                         </div>
                     </div>
 
                     <div className="flex items-center gap-4">
-                        <div className="hidden sm:block text-right">
-                            <p className="text-sm font-medium text-zinc-900 leading-none">{user?.name ?? user?.email}</p>
-                            <p className="text-xs text-zinc-400 mt-0.5">{user?.organization.name} · {authSession.role}</p>
+                        <div className="hidden text-right sm:block">
+                            <p className="text-sm font-medium leading-none text-zinc-900">{user?.name ?? user?.email}</p>
+                            <p className="mt-0.5 text-xs text-zinc-400">{user?.organization.name} · {authSession.role}</p>
                         </div>
 
                         <form action={logoutAction}>
                             <button
                                 type="submit"
-                                className="rounded-lg px-3 py-1.5 text-sm text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition"
+                                className="rounded-lg px-3 py-1.5 text-sm text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900"
                             >
                                 Sign out
                             </button>

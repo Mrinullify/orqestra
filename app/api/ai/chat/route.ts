@@ -10,11 +10,26 @@ import { ApprovalRequiredError } from "@/app/lib/ai/approvals";
 
 const requestSchema = z.object({
     message: z.string().trim().min(1).max(4000),
+    messages: z
+        .array(
+            z.object({
+                role: z.enum(["user", "assistant"]),
+                content: z.string().trim().min(1).max(4000),
+            }),
+        )
+        .max(20)
+        .default([]),
 });
 
 const AI_READ_ONLY_TOOLS = new Set([
     "list_employees",
     "find_employee",
+    "query_company_data",
+    "list_data_sources",
+    "inspect_data_source",
+    "aggregate_company_data",
+    "compare_company_data",
+    "group_company_data",
 ]);
 
 const systemPrompt = `
@@ -22,11 +37,21 @@ You are Orqestra Copilot, an internal business operations assistant.
 
 Rules:
 - Use available tools when the user's request can be fulfilled by a tool.
-- Never invent employee data.
+- Never invent employee or company data.
 - You only have access to the authenticated user's organization.
 - Never ask the user for organization IDs, user IDs, database credentials, or internal secrets.
 - Do not claim an action succeeded unless the tool result confirms it.
 - The currently available AI tools are read-only. Do not claim to have changed or deleted data.
+- For questions about uploaded CSV/Excel data (including salary, department, name, counts, or other imported columns), use the company-data tools. Do not use list_employees or find_employee for values that come from uploaded company data.
+- For calculations such as counts, averages, sums, minimums, maximums, or grouped statistics, ALWAYS use aggregate_company_data or group_company_data so PostgreSQL performs the calculation. Do not calculate these values yourself from rows.
+- For numeric threshold questions such as who earns more than 80000, use compare_company_data so PostgreSQL performs the comparison.
+- For a person lookup in uploaded data, use query_company_data with search set to the person name, such as search="Aman".
+- Use filters with the uploaded column name and value for exact matching.
+- When the user asks what datasets, files, or uploaded company data are available, use list_data_sources first.
+- When you need the columns or structure of a specific dataset, use inspect_data_source after identifying its dataSourceId.
+- Use query_company_data to retrieve actual rows or answer non-aggregate questions about values in uploaded data.
+- Analytics tools require a dataSourceId. If you do not know which dataset contains the requested data, use list_data_sources first, then inspect_data_source if the columns are unclear.
+- For broad text lookup, use search.
 - For unsupported requests, explain what is currently supported.
 - Keep responses concise and useful.
 `.trim();
@@ -64,9 +89,12 @@ function safeToolError(error: unknown): string {
     if (error instanceof Error) {
         const safeMessages = new Set([
             "Employee not found.",
+            "Data source not found.",
             "employeeId or email is required.",
             "Invalid tool arguments.",
             "You are not authorized to perform this action.",
+            "A numeric column is required for this operation.",
+            "A numeric metric column is required for this operation.",
         ]);
 
         if (safeMessages.has(error.message)) {
@@ -98,13 +126,17 @@ export async function POST(request: Request) {
         );
     }
 
-    // Keep authentication outside the application-error catch so Auth.js
-    // redirect behavior is preserved for unauthenticated requests.
     const context = await getToolContext("AI");
 
     try {
+        const conversation: LlmMessage[] = parsed.data.messages.map((message) => ({
+            role: message.role,
+            content: message.content,
+        }));
+
         const messages: LlmMessage[] = [
             { role: "system", content: systemPrompt },
+            ...conversation,
             { role: "user", content: parsed.data.message },
         ];
 
@@ -179,7 +211,9 @@ export async function POST(request: Request) {
             },
             { status: 500 },
         );
-    } catch {
+    } catch (error) {
+        console.error("AI chat request failed:", error);
+
         return NextResponse.json(
             {
                 error: "Unable to process the AI request.",

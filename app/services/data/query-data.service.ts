@@ -1,5 +1,6 @@
 import "server-only";
 
+import { Prisma } from "../../../generated/prisma/client";
 import { prisma } from "@/app/lib/prisma";
 import type { ServiceContext } from "@/app/lib/ai/types";
 
@@ -17,67 +18,62 @@ export async function queryCompanyData(
         limit: number;
     },
 ) {
-    const dataSource = input.dataSourceId
-        ? await prisma.dataSource.findFirst({
-              where: {
-                  id: input.dataSourceId,
-                  organizationId: context.organizationId,
-              },
-              select: {
-                  id: true,
-                  name: true,
-                  originalName: true,
-              },
-          })
-        : null;
+    let where = Prisma.sql`"organizationId" = ${context.organizationId}`;
 
-    if (input.dataSourceId && !dataSource) {
-        throw new Error("Data source not found.");
+    if (input.dataSourceId) {
+        where = Prisma.sql`${where} AND "dataSourceId" = ${input.dataSourceId}`;
     }
 
-    const records = await prisma.dataRecord.findMany({
-        where: {
-            organizationId: context.organizationId,
-            ...(input.dataSourceId
-                ? { dataSourceId: input.dataSourceId }
-                : {}),
-        },
-        orderBy: { rowNumber: "asc" },
-        take: Math.min(input.limit, 100),
-        select: {
-            rowNumber: true,
-            data: true,
-            dataSourceId: true,
-        },
-    });
+    for (const filter of input.filters ?? []) {
+        where = Prisma.sql`${where}
+            AND jsonb_extract_path_text("data", ${filter.column}) = ${filter.value}`;
+    }
 
-    const filters = input.filters ?? [];
-    const search = input.search?.trim().toLowerCase();
+    const search = input.search?.trim();
+    if (search) {
+        where = Prisma.sql`${where} AND "data"::text ILIKE ${`%${search}%`}`;
+    }
 
-    const filtered = records.filter((record) => {
-        const row = record.data as Record<string, unknown>;
+    const rows = await prisma.$queryRaw<
+        Array<{
+            rowNumber: number;
+            data: Record<string, unknown>;
+            dataSourceId: string;
+        }>
+    >(Prisma.sql`
+        SELECT "rowNumber", "data", "dataSourceId"
+        FROM "DataRecord"
+        WHERE ${where}
+        ORDER BY "rowNumber" ASC
+        LIMIT ${input.limit}
+    `);
 
-        const matchesFilters = filters.every((filter) => {
-            const value = row[filter.column];
-            return String(value ?? "").toLowerCase() === filter.value.toLowerCase();
+    let dataSource: { id: string; name: string } | null = null;
+
+    if (input.dataSourceId) {
+        const source = await prisma.dataSource.findFirst({
+            where: {
+                id: input.dataSourceId,
+                organizationId: context.organizationId,
+            },
+            select: {
+                id: true,
+                name: true,
+            },
         });
 
-        if (!matchesFilters) return false;
+        if (!source) {
+            throw new Error("Data source not found.");
+        }
 
-        if (!search) return true;
-
-        return JSON.stringify(row).toLowerCase().includes(search);
-    });
+        dataSource = source;
+    }
 
     return {
-        dataSource: dataSource
-            ? {
-                  id: dataSource.id,
-                  name: dataSource.name,
-              }
-            : null,
-        count: filtered.length,
-        rows: filtered,
-        truncated: records.length >= Math.min(input.limit, 100),
+        dataSource,
+        count: rows.length,
+        rows,
+        limit: input.limit,
+        hasMore: rows.length === input.limit,
     };
 }

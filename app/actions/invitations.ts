@@ -1,6 +1,5 @@
 "use server";
 
-import { z } from "zod";
 import crypto from "crypto";
 import { headers } from "next/headers";
 import { requireHRRole } from "@/app/lib/auth";
@@ -9,8 +8,6 @@ import { invitationQueue } from "@/app/lib/queue";
 import { checkRateLimit, RATE_LIMITS } from "@/app/lib/rate-limit";
 
 const INVITATION_EXPIRY_HOURS = Number(process.env.INVITATION_EXPIRY_HOURS ?? "24");
-const MAX_BATCH_SIZE = Number(process.env.MAX_INVITATION_BATCH ?? "500");
-
 import {
     BulkEmployeeBatchSchema,
     EmployeeItemSchema,

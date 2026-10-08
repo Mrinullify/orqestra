@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const MAX_BATCH_SIZE = Number(process.env.MAX_INVITATION_BATCH ?? "500");
+export const MAX_BATCH_SIZE = Number(process.env.MAX_INVITATION_BATCH ?? "500");
 
 export const EmployeeItemSchema = z.object({
     name: z.string().trim().min(1, "Employee name is required"),

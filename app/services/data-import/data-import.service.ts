@@ -4,6 +4,7 @@ import Papa from "papaparse";
 import * as XLSX from "xlsx";
 
 import { prisma } from "@/app/lib/prisma";
+import { Prisma } from "@/generated/prisma/client";
 import { getObjectBytes } from "@/app/lib/storage";
 import type { ServiceContext } from "@/app/lib/ai/types";
 
@@ -132,7 +133,7 @@ export async function processDataImport(
             status: "PROCESSING",
             startedAt: new Date(),
             completedAt: null,
-            errorDetails: null,
+            errorDetails: Prisma.JsonNull,
         },
     });
 
@@ -189,7 +190,7 @@ export async function processDataImport(
                     dataSourceId: dataImport.dataSourceId,
                     dataImportId: dataImport.id,
                     rowNumber: record.rowNumber,
-                    data: record.data,
+                    data: record.data as Prisma.InputJsonValue,
                 })),
             });
         }

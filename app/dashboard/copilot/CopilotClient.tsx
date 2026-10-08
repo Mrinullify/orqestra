@@ -35,7 +35,10 @@ export default function CopilotClient() {
                 headers: {
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify({ message: text }),
+                body: JSON.stringify({
+                    message: text,
+                    messages: messages,
+                }),
             });
 
             const data = (await response.json()) as {

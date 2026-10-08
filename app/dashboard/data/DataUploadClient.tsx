@@ -77,7 +77,7 @@ export default function DataUploadClient() {
                 throw new Error(prepareData.error ?? "Unable to prepare the upload.");
             }
 
-            setStatus("Uploading file to Cloudflare R2...");
+            setStatus("Uploading file to local storage...");
 
             const uploadResponse = await fetch(prepareData.uploadUrl, {
                 method: "PUT",
@@ -89,7 +89,7 @@ export default function DataUploadClient() {
 
             if (!uploadResponse.ok) {
                 throw new Error(
-                    `R2 upload failed with status ${uploadResponse.status}.`,
+                    `File upload failed with status ${uploadResponse.status}.`,
                 );
             }
 

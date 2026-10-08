@@ -4,7 +4,7 @@ import Papa from "papaparse";
 import * as XLSX from "xlsx";
 
 import { prisma } from "@/app/lib/prisma";
-import { getObjectBytes } from "@/app/lib/r2";
+import { getObjectBytes } from "@/app/lib/storage";
 import type { ServiceContext } from "@/app/lib/ai/types";
 
 const MAX_IMPORT_ROWS = 250_000;

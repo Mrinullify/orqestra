@@ -10,6 +10,15 @@ import { ApprovalRequiredError } from "@/app/lib/ai/approvals";
 
 const requestSchema = z.object({
     message: z.string().trim().min(1).max(4000),
+    messages: z
+        .array(
+            z.object({
+                role: z.enum(["user", "assistant"]),
+                content: z.string().trim().min(1).max(4000),
+            }),
+        )
+        .max(20)
+        .default([]),
 });
 
 const AI_READ_ONLY_TOOLS = new Set([
@@ -107,8 +116,14 @@ export async function POST(request: Request) {
     const context = await getToolContext("AI");
 
     try {
+        const conversation: LlmMessage[] = parsed.data.messages.map((message) => ({
+            role: message.role,
+            content: message.content,
+        }));
+
         const messages: LlmMessage[] = [
             { role: "system", content: systemPrompt },
+            ...conversation,
             { role: "user", content: parsed.data.message },
         ];
 

@@ -5,7 +5,7 @@ import crypto from "crypto";
 
 import { getVerifiedAuthSession } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
-import { createUploadUrl } from "@/app/lib/r2";
+import { createUploadUrl } from "@/app/lib/storage";
 
 export const runtime = "nodejs";
 

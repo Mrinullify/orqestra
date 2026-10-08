@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { checkRateLimit } from "@/app/lib/rate-limit";
-import { EmployeeItemSchema, BulkEmployeeBatchSchema } from "@/app/actions/invitations";
+import { EmployeeItemSchema, BulkEmployeeBatchSchema } from "@/app/lib/validation/invitations";
 
 // ---------------------------------------------------------------------------
 // 1. Token Cryptography & Hashing Tests

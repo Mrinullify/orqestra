@@ -6,6 +6,8 @@ import { getVerifiedAuthSession } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
 import { headObject } from "@/app/lib/storage";
 import { processDataImport } from "@/app/services/data-import/data-import.service";
+import type { ServiceContext } from "@/app/lib/ai/types";
+import type { OrganizationRole } from "@/generated/prisma/client";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -72,7 +74,14 @@ export async function POST(request: Request) {
             );
         }
 
-        const result = await processDataImport(session, dataImport.id);
+        const serviceContext: ServiceContext = {
+            userId: session.userId,
+            organizationId: session.organizationId,
+            role: session.role as OrganizationRole,
+            requestId: crypto.randomUUID(),
+        };
+
+        const result = await processDataImport(serviceContext, dataImport.id);
 
         return NextResponse.json({
             success: true,

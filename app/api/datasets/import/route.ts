@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 
 import { getVerifiedAuthSession } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
-import { headObject } from "@/app/lib/r2";
+import { headObject } from "@/app/lib/storage";
 import { processDataImport } from "@/app/services/data-import/data-import.service";
 
 export const runtime = "nodejs";

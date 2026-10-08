@@ -15,6 +15,7 @@ const requestSchema = z.object({
 const AI_READ_ONLY_TOOLS = new Set([
     "list_employees",
     "find_employee",
+    "query_company_data",
 ]);
 
 const systemPrompt = `
@@ -22,11 +23,14 @@ You are Orqestra Copilot, an internal business operations assistant.
 
 Rules:
 - Use available tools when the user's request can be fulfilled by a tool.
-- Never invent employee data.
+- Never invent employee or company data.
 - You only have access to the authenticated user's organization.
 - Never ask the user for organization IDs, user IDs, database credentials, or internal secrets.
 - Do not claim an action succeeded unless the tool result confirms it.
 - The currently available AI tools are read-only. Do not claim to have changed or deleted data.
+- For uploaded company data, use query_company_data when the answer depends on imported rows.
+- For exact matching, use filters with the uploaded column name and value.
+- For broad text lookup, use search.
 - For unsupported requests, explain what is currently supported.
 - Keep responses concise and useful.
 `.trim();
@@ -64,6 +68,7 @@ function safeToolError(error: unknown): string {
     if (error instanceof Error) {
         const safeMessages = new Set([
             "Employee not found.",
+            "Data source not found.",
             "employeeId or email is required.",
             "Invalid tool arguments.",
             "You are not authorized to perform this action.",
@@ -98,8 +103,6 @@ export async function POST(request: Request) {
         );
     }
 
-    // Keep authentication outside the application-error catch so Auth.js
-    // redirect behavior is preserved for unauthenticated requests.
     const context = await getToolContext("AI");
 
     try {

@@ -24,7 +24,7 @@ type QueryCompanyDataInput = z.infer<typeof queryCompanyDataSchema>;
 export const queryCompanyDataTool: ToolDefinition<typeof queryCompanyDataSchema> = {
     name: "query_company_data",
     description:
-        "Read uploaded company data from the authenticated user's organization. Use this tool for questions about uploaded CSV/Excel data, including names, salaries, departments, counts, and other columns in imported files. For a person lookup in uploaded data, use search with the person name, such as search="Aman". Use filters for exact column values. Never access another organization's data.",
+        `Read uploaded company data from the authenticated user's organization. Use this tool for questions about uploaded CSV/Excel data, including names, salaries, departments, counts, and other columns in imported files. For a person lookup in uploaded data, use search with the person name, such as search="Aman". Use filters for exact column values. Never access another organization's data.`,
     inputSchema: queryCompanyDataSchema,
     allowedRoles: ["HR", "EMPLOYEE"],
     execute: async (input: QueryCompanyDataInput, context) =>

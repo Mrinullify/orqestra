@@ -76,11 +76,6 @@ const companyDataRowSchema = z.object({
     dataSourceId: z.string(),
 });
 
-const filterSchema = z.object({
-    column: z.string().min(1),
-    value: z.string(),
-}).strict();
-
 const queryCompanyDataMcpSchema = queryCompanyDataSchema;
 
 const listDataSourcesMcpSchema = z.object({}).strict();

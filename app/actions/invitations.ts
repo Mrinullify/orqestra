@@ -13,6 +13,7 @@ import {
     EmployeeItemSchema,
     type EmployeeRow,
     type InviteState,
+    MAX_BATCH_SIZE,
 } from "@/app/lib/validation/invitations";
 import type { ValidationResult } from "@/app/lib/validation/invitations";
 

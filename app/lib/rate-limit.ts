@@ -19,9 +19,10 @@ interface MemoryStoreEntry {
 
 const memoryStore = new Map<string, MemoryStoreEntry>();
 
-// Periodic cleanup of stale memory store entries every 5 minutes
+// Periodic cleanup of stale memory store entries every 5 minutes.
+// unref() prevents this background timer from keeping Node.js (including Jest) alive.
 if (typeof setInterval !== "undefined") {
-    setInterval(() => {
+    const cleanupInterval = setInterval(() => {
         const now = Date.now();
         for (const [key, entry] of memoryStore.entries()) {
             // Keep only timestamps from last 10 minutes
@@ -31,6 +32,8 @@ if (typeof setInterval !== "undefined") {
             }
         }
     }, 5 * 60 * 1000);
+
+    cleanupInterval.unref();
 }
 
 /**

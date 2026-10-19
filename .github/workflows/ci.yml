@@ -31,6 +31,12 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Generate Prisma Client
+        run: npx prisma generate
+        env:
+          # Prisma generate needs a syntactically valid URL, but does not connect to the database.
+          DIRECT_URL: postgresql://postgres:postgres@localhost:5432/orqestra
+
       - name: Run ESLint
         run: npm run lint
 

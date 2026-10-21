@@ -5,7 +5,10 @@ import { requireHR } from "@/app/lib/ai/permissions";
 import { Prisma } from "../../../generated/prisma/client";
 import { prisma } from "@/app/lib/prisma";
 import type { ServiceContext } from "@/app/lib/ai/types";
-import { assertDatasetColumns } from "@/app/services/data/dataset-schema.service";
+import {
+    assertDatasetColumns,
+    assertReportingPeriodSelection,
+} from "@/app/services/data/dataset-schema.service";
 
 export interface CompanyDataFilter {
     column: string;
@@ -35,6 +38,7 @@ export async function queryCompanyData(
         throw new Error("Data source not found.");
     }
 
+    await assertReportingPeriodSelection(context, input.dataSourceId, input.reportingPeriod);
     await assertDatasetColumns(
         context,
         input.dataSourceId,
@@ -61,7 +65,7 @@ export async function queryCompanyData(
                 WHERE period_import.id = "DataRecord"."dataImportId"
                   AND period_import.status = 'COMPLETED'
                   AND period_import."isActive" = true
-                  AND period_import."reportingPeriod" = ${input.reportingPeriod}
+                  AND LOWER(BTRIM(period_import."reportingPeriod")) = LOWER(BTRIM(${input.reportingPeriod}))
             )`;
     }
 

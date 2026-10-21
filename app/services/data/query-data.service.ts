@@ -12,25 +12,35 @@ export interface CompanyDataFilter {
 export async function queryCompanyData(
     context: ServiceContext,
     input: {
-        dataSourceId?: string;
+        dataSourceId: string;
         search?: string;
         filters?: CompanyDataFilter[];
         limit: number;
     },
 ) {
+    const dataSource = await prisma.dataSource.findFirst({
+        where: {
+            id: input.dataSourceId,
+            organizationId: context.organizationId,
+        },
+        select: { id: true, name: true },
+    });
+
+    if (!dataSource) {
+        throw new Error("Data source not found.");
+    }
+
     let where = Prisma.sql`
         "organizationId" = ${context.organizationId}
+        AND "dataSourceId" = ${input.dataSourceId}
         AND EXISTS (
             SELECT 1
             FROM "DataImport" AS import_record
             WHERE import_record.id = "DataRecord"."dataImportId"
               AND import_record.status = 'COMPLETED'
+              AND import_record."isActive" = true
         )
     `;
-
-    if (input.dataSourceId) {
-        where = Prisma.sql`${where} AND "dataSourceId" = ${input.dataSourceId}`;
-    }
 
     for (const filter of input.filters ?? []) {
         where = Prisma.sql`${where}
@@ -55,27 +65,6 @@ export async function queryCompanyData(
         ORDER BY "rowNumber" ASC
         LIMIT ${input.limit}
     `);
-
-    let dataSource: { id: string; name: string } | null = null;
-
-    if (input.dataSourceId) {
-        const source = await prisma.dataSource.findFirst({
-            where: {
-                id: input.dataSourceId,
-                organizationId: context.organizationId,
-            },
-            select: {
-                id: true,
-                name: true,
-            },
-        });
-
-        if (!source) {
-            throw new Error("Data source not found.");
-        }
-
-        dataSource = source;
-    }
 
     return {
         dataSource,

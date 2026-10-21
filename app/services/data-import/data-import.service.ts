@@ -197,7 +197,7 @@ export async function processDataImport(
                 where: {
                     dataSourceId: dataImport.dataSourceId,
                     id: { not: dataImport.id },
-                    reportingPeriod: dataImport.reportingPeriod,
+                    reportingPeriod: { equals: dataImport.reportingPeriod, mode: "insensitive" },
                     status: "COMPLETED",
                     isActive: true,
                 },
@@ -289,7 +289,7 @@ export async function processDataImport(
                     where: {
                         dataSourceId: dataImport.dataSourceId,
                         id: { not: dataImport.id },
-                        reportingPeriod: dataImport.reportingPeriod,
+                        reportingPeriod: { equals: dataImport.reportingPeriod, mode: "insensitive" },
                         status: "COMPLETED",
                         isActive: true,
                     },

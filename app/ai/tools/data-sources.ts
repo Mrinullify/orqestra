@@ -14,7 +14,7 @@ export const listDataSourcesTool: ToolDefinition<typeof listDataSourcesSchema> =
     description:
         "List uploaded company data sources available to the authenticated user's organization. Use this when the user asks what datasets, files, or company data are available. Never access another organization's data.",
     inputSchema: listDataSourcesSchema,
-    allowedRoles: ["HR", "EMPLOYEE"],
+    allowedRoles: ["HR"],
     execute: async (_input, context) => listDataSources(context),
 };
 
@@ -29,7 +29,7 @@ export const inspectDataSourceTool: ToolDefinition<typeof inspectDataSourceSchem
     description:
         "Inspect one uploaded company data source to see file information, import status, row counts, and discovered columns. Use this after list_data_sources when you need to understand a dataset before querying it.",
     inputSchema: inspectDataSourceSchema,
-    allowedRoles: ["HR", "EMPLOYEE"],
+    allowedRoles: ["HR"],
     execute: async (input: InspectDataSourceInput, context) =>
         inspectDataSource(context, input.dataSourceId),
 };

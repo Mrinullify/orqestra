@@ -12,6 +12,11 @@ enum DataSourceType {
     EXCEL
 }
 
+enum DatasetPeriodMode {
+    ADDITIVE
+    SNAPSHOT
+}
+
 enum ImportStatus {
     PENDING
     PROCESSING
@@ -143,6 +148,7 @@ model DataSource {
     name           String
     originalName   String
     type           DataSourceType
+    periodMode     DatasetPeriodMode @default(ADDITIVE)
     mimeType       String?
     sizeBytes      BigInt?
     storageKey     String

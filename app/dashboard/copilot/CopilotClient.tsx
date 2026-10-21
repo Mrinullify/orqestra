@@ -2,14 +2,24 @@
 
 import { FormEvent, useState } from "react";
 
+type ChartPayload = {
+    type: "bar";
+    title: string;
+    xAxisLabel: string;
+    yAxisLabel: string;
+    points: Array<{ label: string; value: number }>;
+};
+
 type Message = {
     role: "user" | "assistant";
     content: string;
+    chart?: ChartPayload;
 };
 
 const suggestions = [
-    "List all employees",
-    "Find the employee with email bear@gmail.com",
+    "Which department has the highest average salary? Show a chart.",
+    "Compare employee count by department with a chart.",
+    "Show the salary distribution and explain any unusual patterns.",
 ];
 
 export default function CopilotClient() {
@@ -43,6 +53,7 @@ export default function CopilotClient() {
 
             const data = (await response.json()) as {
                 message?: string;
+                chart?: ChartPayload;
                 error?: string;
             };
 
@@ -55,6 +66,7 @@ export default function CopilotClient() {
                 {
                     role: "assistant",
                     content: data.message ?? "I couldn't generate a response.",
+                    ...(data.chart ? { chart: data.chart } : {}),
                 },
             ]);
         } catch (error) {
@@ -120,7 +132,31 @@ export default function CopilotClient() {
                                         : "max-w-[85%] rounded-2xl rounded-bl-md bg-zinc-100 px-4 py-3 text-sm whitespace-pre-wrap text-zinc-800"
                                 }
                             >
-                                {message.content}
+                                <div>{message.content}</div>
+                                {message.role === "assistant" && message.chart && (
+                                    <div className="mt-4 w-full min-w-[260px] rounded-xl border border-zinc-200 bg-white p-4 text-zinc-800 sm:min-w-[360px]">
+                                        <div className="mb-3">
+                                            <h3 className="text-sm font-semibold text-zinc-900">{message.chart.title}</h3>
+                                            <p className="mt-1 text-xs text-zinc-500">{message.chart.xAxisLabel} · {message.chart.yAxisLabel}</p>
+                                        </div>
+                                        <div className="space-y-3">
+                                            {message.chart.points.map((point) => {
+                                                const maxValue = Math.max(1, ...message.chart!.points.map((item) => Math.abs(item.value)));
+                                                const width = Math.max(1, (Math.abs(point.value) / maxValue) * 100);
+                                                return (
+                                                    <div key={point.label} className="grid grid-cols-[minmax(72px,0.8fr)_minmax(90px,2fr)_auto] items-center gap-2 text-xs">
+                                                        <span className="truncate text-zinc-600" title={point.label}>{point.label}</span>
+                                                        <div className="h-2.5 overflow-hidden rounded-full bg-zinc-100">
+                                                            <div className="h-full rounded-full bg-indigo-600" style={{ width: `${width}%` }} />
+                                                        </div>
+                                                        <span className="min-w-[56px] text-right font-medium tabular-nums text-zinc-800">{new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(point.value)}</span>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                        <p className="mt-3 text-[11px] text-zinc-400">Chart values are calculated from the uploaded dataset.</p>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     ))
@@ -153,7 +189,7 @@ export default function CopilotClient() {
                     </button>
                 </div>
                 <p className="mt-2 text-xs text-zinc-400">
-                    Copilot currently supports read-only employee queries.
+                    Ask natural-language questions, compare groups, and request charts from your company data.
                 </p>
             </form>
         </div>

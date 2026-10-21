@@ -61,6 +61,7 @@ export const groupCompanyDataSchema = z.object({
     operation: z.enum(["count", "sum", "average", "min", "max"]),
     metricColumn: z.string().min(1).optional(),
     filters: z.array(filterSchema).max(10).optional(),
+    reportingPeriod: z.string().trim().min(1).max(80).optional(),
     limit: z.number().int().min(1).max(100).default(20),
 }).strict();
 

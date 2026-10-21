@@ -48,6 +48,7 @@ export async function POST(request: Request) {
             fileName?: unknown;
             datasetName?: unknown;
             reportingPeriod?: unknown;
+            replaceExistingPeriod?: unknown;
             sizeBytes?: unknown;
             contentType?: unknown;
         };
@@ -60,6 +61,7 @@ export async function POST(request: Request) {
             typeof body.reportingPeriod === "string" && body.reportingPeriod.trim()
                 ? body.reportingPeriod.trim()
                 : null;
+        const replaceExistingPeriod = body.replaceExistingPeriod === true;
         const sizeBytes =
             typeof body.sizeBytes === "number" ? body.sizeBytes : 0;
         const requestedContentType =
@@ -91,6 +93,13 @@ export async function POST(request: Request) {
             );
         }
 
+        if (replaceExistingPeriod && !reportingPeriod) {
+            return NextResponse.json(
+                { error: "A reporting period is required when replacing existing period data." },
+                { status: 400 },
+            );
+        }
+
         if (!Number.isSafeInteger(sizeBytes) || sizeBytes <= 0 || sizeBytes > MAX_FILE_SIZE) {
             return NextResponse.json(
                 { error: "The file must be non-empty and no larger than 100 MB." },
@@ -98,13 +107,42 @@ export async function POST(request: Request) {
             );
         }
 
-        const existingSource = await prisma.dataSource.findFirst({
+        const matchingSources = await prisma.dataSource.findMany({
             where: {
                 organizationId: session.organizationId,
                 name: { equals: datasetName, mode: "insensitive" },
             },
+            take: 2,
             select: { id: true, schema: true },
         });
+
+        if (matchingSources.length > 1) {
+            return NextResponse.json(
+                { error: "More than one existing dataset has this name. Rename or reconcile the existing datasets before uploading more files." },
+                { status: 409 },
+            );
+        }
+
+        const existingSource = matchingSources[0] ?? null;
+
+        if (existingSource && reportingPeriod) {
+            const existingPeriod = await prisma.dataImport.findFirst({
+                where: {
+                    dataSourceId: existingSource.id,
+                    reportingPeriod,
+                    status: "COMPLETED",
+                    isActive: true,
+                },
+                select: { id: true },
+            });
+
+            if (existingPeriod && !replaceExistingPeriod) {
+                return NextResponse.json(
+                    { error: `The period "${reportingPeriod}" already exists in this dataset. Enable "Replace existing period" to replace it safely, or choose a different period.` },
+                    { status: 409 },
+                );
+            }
+        }
 
         const dataSourceId = existingSource?.id ?? crypto.randomUUID();
         const dataImportId = crypto.randomUUID();
@@ -123,6 +161,7 @@ export async function POST(request: Request) {
                     mimeType,
                     sizeBytes,
                     reportingPeriod,
+                    replaceExistingPeriod,
                 },
             });
         } else {

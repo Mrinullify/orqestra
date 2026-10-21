@@ -69,6 +69,14 @@ describe("dataset schema contracts", () => {
         });
     });
 
+    it("does not infer malformed thousands separators as numeric", () => {
+        expect(inferDatasetColumnTypes(
+            [{ amount: "1,2" }],
+            ["amount"],
+            ["amount"],
+        )).toEqual({ amount: "string" });
+    });
+
     it("rejects type drift in a previously numeric column", () => {
         expect(() =>
             validateDatasetColumnTypes(

@@ -27,7 +27,7 @@ const listEmployeesTool: ToolDefinition<typeof listEmployeesSchema> = {
     name: "list_employees",
     description: "List employees belonging to the authenticated user's organization.",
     inputSchema: listEmployeesSchema,
-    allowedRoles: ["HR", "EMPLOYEE"],
+    allowedRoles: ["HR"],
     execute: async (_input: ListEmployeesInput, context) => listEmployees(context),
 };
 
@@ -35,7 +35,7 @@ const findEmployeeTool: ToolDefinition<typeof findEmployeeSchema> = {
     name: "find_employee",
     description: "Find one employee by organization-scoped employee ID or email.",
     inputSchema: findEmployeeSchema,
-    allowedRoles: ["HR", "EMPLOYEE"],
+    allowedRoles: ["HR"],
     execute: async (input: FindEmployeeInput, context) => findEmployee(context, input),
 };
 

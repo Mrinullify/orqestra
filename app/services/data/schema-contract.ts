@@ -1,9 +1,12 @@
 export type DatasetColumnType = "number" | "date" | "boolean" | "string" | "mixed" | "unknown";
 
 function normalizeNumericValue(value: unknown): string {
-    return String(value ?? "").trim().replace(/[$,£€₹\s]/g, "");
+    const raw = String(value ?? "").trim().replace(/[$£€₹\s]/g, "");
+    if (!/^[+-]?(([0-9]+|[0-9]{1,3}(,[0-9]{3})+)(\.[0-9]*)?|\.[0-9]+)$/.test(raw)) {
+        return "";
+    }
+    return raw.replace(/,/g, "");
 }
-
 function isNumericValue(value: unknown): boolean {
     return /^[+-]?((\d+(\.\d*)?)|(\.\d+))$/.test(normalizeNumericValue(value));
 }

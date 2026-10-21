@@ -3,7 +3,7 @@ import "server-only";
 import { Prisma } from "../../../generated/prisma/client";
 import { prisma } from "@/app/lib/prisma";
 import type { ServiceContext } from "@/app/lib/ai/types";
-import { assertDatasetColumns } from "@/app/services/data/dataset-schema.service";
+import { assertDatasetColumns, assertDatasetNumericColumns } from "@/app/services/data/dataset-schema.service";
 
 export interface CompanyDataFilter {
     column: string;
@@ -126,6 +126,7 @@ export async function aggregateCompanyData(
     if (!input.column) {
         throw new Error("A numeric column is required for this operation.");
     }
+    await assertDatasetNumericColumns(context, input.dataSourceId, [input.column]);
 
     const expression = numericExpression(input.column);
     const operationSql =
@@ -171,6 +172,7 @@ export async function compareCompanyData(
         input.column,
         ...(input.filters ?? []).map((filter) => filter.column),
     ]);
+    await assertDatasetNumericColumns(context, input.dataSourceId, [input.column]);
     const where = buildWhere(context, input.dataSourceId, input.filters, input.reportingPeriod);
     const expression = numericExpression(input.column);
 
@@ -232,6 +234,9 @@ export async function groupCompanyData(
 
     if (input.operation !== "count" && !input.metricColumn) {
         throw new Error("A numeric metric column is required for this operation.");
+    }
+    if (input.operation !== "count" && input.metricColumn) {
+        await assertDatasetNumericColumns(context, input.dataSourceId, [input.metricColumn]);
     }
 
     const groupExpression = Prisma.sql`jsonb_extract_path_text("data", ${input.groupBy})`;

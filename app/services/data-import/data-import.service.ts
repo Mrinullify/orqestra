@@ -11,25 +11,70 @@ import type { ServiceContext } from "@/app/lib/ai/types";
 const MAX_IMPORT_ROWS = 250_000;
 const BATCH_SIZE = 1_000;
 
+type ParsedRows = {
+    rows: Array<Record<string, unknown>>;
+    headers: string[];
+};
+
 function normalizeColumnName(value: string): string {
-    const normalized = value
+    return value
         .trim()
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "_")
         .replace(/^_+|_+$/g, "");
-
-    return normalized || "column";
 }
 
+/**
+ * Column names are part of a dataset's contract. Do not silently rename
+ * collisions (for example, "Employee ID" and "employee-id") because that
+ * makes queries ambiguous and hides malformed input.
+ */
 function normalizeHeaders(headers: string[]): string[] {
-    const counts = new Map<string, number>();
+    const normalized = headers.map(normalizeColumnName);
+    const seen = new Set<string>();
 
-    return headers.map((header) => {
-        const base = normalizeColumnName(header);
-        const count = (counts.get(base) ?? 0) + 1;
-        counts.set(base, count);
-        return count === 1 ? base : `${base}_${count}`;
-    });
+    for (const [index, header] of headers.entries()) {
+        if (!header.trim() || !normalized[index]) {
+            throw new Error("Column headers cannot be empty.");
+        }
+        if (seen.has(normalized[index])) {
+            throw new Error(
+                `Duplicate column headers after normalization: "${header}". Rename the conflicting columns and upload again.`,
+            );
+        }
+        seen.add(normalized[index]);
+    }
+
+    return normalized;
+}
+
+function getSchemaColumns(value: unknown): string[] | null {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+
+    const columns = (value as Record<string, unknown>).columns;
+    if (!Array.isArray(columns) || !columns.every((column) => typeof column === "string")) {
+        return null;
+    }
+
+    return columns;
+}
+
+function validateSchema(expected: string[], actual: string[]) {
+    const expectedSet = new Set(expected);
+    const actualSet = new Set(actual);
+    const missing = expected.filter((column) => !actualSet.has(column));
+    const unexpected = actual.filter((column) => !expectedSet.has(column));
+
+    if (missing.length || unexpected.length) {
+        const details = [
+            missing.length ? `Missing columns: ${missing.join(", ")}` : "",
+            unexpected.length ? `Unexpected columns: ${unexpected.join(", ")}` : "",
+        ].filter(Boolean).join(". ");
+
+        throw new Error(
+            `This file does not match the schema for this dataset. ${details}. The existing dataset was not changed.`,
+        );
+    }
 }
 
 function buildRecords(
@@ -54,7 +99,7 @@ function buildRecords(
 async function parseRows(
     bytes: Uint8Array,
     type: "CSV" | "EXCEL",
-) {
+): Promise<ParsedRows> {
     if (type === "CSV") {
         const text = Buffer.from(bytes).toString("utf8");
 
@@ -72,15 +117,12 @@ async function parseRows(
             );
         }
 
-        const headers = result.meta.fields ?? [];
+        const headers = (result.meta.fields ?? []).map((header) => header.trim());
         if (headers.length === 0) {
             throw new Error("The CSV must contain a header row.");
         }
 
-        return {
-            rows: result.data,
-            headers,
-        };
+        return { rows: result.data, headers };
     }
 
     const workbook = XLSX.read(Buffer.from(bytes), {
@@ -99,7 +141,7 @@ async function parseRows(
         raw: false,
     });
 
-    const headers = rows.length > 0 ? Object.keys(rows[0]) : [];
+    const headers = rows.length > 0 ? Object.keys(rows[0]).map((header) => header.trim()) : [];
     if (headers.length === 0) {
         throw new Error("The Excel sheet must contain a header row and data.");
     }
@@ -138,13 +180,15 @@ export async function processDataImport(
     });
 
     try {
-        const bytes = await getObjectBytes(dataImport.dataSource.storageKey);
+        const objectKey = dataImport.storageKey ?? dataImport.dataSource.storageKey;
+        const fileType = dataImport.fileType ?? dataImport.dataSource.type;
+        const bytes = await getObjectBytes(objectKey);
 
         if (bytes.byteLength === 0) {
             throw new Error("The uploaded file is empty.");
         }
 
-        const parsed = await parseRows(bytes, dataImport.dataSource.type);
+        const parsed = await parseRows(bytes, fileType);
 
         if (parsed.rows.length > MAX_IMPORT_ROWS) {
             throw new Error(
@@ -153,6 +197,36 @@ export async function processDataImport(
         }
 
         const normalizedHeaders = normalizeHeaders(parsed.headers);
+        let expectedColumns = getSchemaColumns(dataImport.dataSource.schema);
+
+        // Adopt the column contract from the latest successful legacy import
+        // when this dataset predates the schema-contract migration.
+        if (!expectedColumns) {
+            const previousImport = await prisma.dataImport.findFirst({
+                where: {
+                    dataSourceId: dataImport.dataSourceId,
+                    id: { not: dataImport.id },
+                    status: "COMPLETED",
+                },
+                orderBy: { createdAt: "desc" },
+                select: {
+                    columnMappings: {
+                        select: { normalizedName: true },
+                    },
+                },
+            });
+            const previousColumns = previousImport?.columnMappings.map(
+                (mapping) => mapping.normalizedName,
+            );
+            if (previousColumns?.length) expectedColumns = previousColumns;
+        }
+
+        if (expectedColumns) {
+            validateSchema(
+                [...expectedColumns].sort(),
+                [...normalizedHeaders].sort(),
+            );
+        }
 
         await prisma.$transaction(async (tx) => {
             await tx.dataRecord.deleteMany({
@@ -192,6 +266,18 @@ export async function processDataImport(
                     rowNumber: record.rowNumber,
                     data: record.data as Prisma.InputJsonValue,
                 })),
+            });
+        }
+
+        if (!expectedColumns) {
+            await prisma.dataSource.update({
+                where: { id: dataImport.dataSourceId },
+                data: {
+                    schema: {
+                        version: 1,
+                        columns: normalizedHeaders,
+                    } as Prisma.InputJsonValue,
+                },
             });
         }
 

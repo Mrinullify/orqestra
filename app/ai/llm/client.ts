@@ -80,6 +80,22 @@ export type LlmResponse = {
     };
 };
 
+function parseDurationSeconds(value: string | null): number | undefined {
+    if (!value) return undefined;
+
+    const numeric = Number(value);
+    if (Number.isFinite(numeric) && numeric >= 0) return numeric;
+
+    // Groq reset headers commonly look like "7.66s" or "2m59.56s".
+    const match = value.trim().match(/^(?:(\d+(?:\.\d+)?)m)?\s*(?:(\d+(?:\.\d+)?)s)?$/i);
+    if (!match || (!match[1] && !match[2])) return undefined;
+
+    const minutes = Number(match[1] ?? 0);
+    const seconds = Number(match[2] ?? 0);
+    const total = minutes * 60 + seconds;
+    return Number.isFinite(total) && total >= 0 ? total : undefined;
+}
+
 function parseRetryDelay(response: Response, responseBody: string): number | undefined {
     const headerValue = response.headers.get("retry-after");
     if (headerValue) {
@@ -98,7 +114,12 @@ function parseRetryDelay(response: Response, responseBody: string): number | und
         if (Number.isFinite(seconds) && seconds >= 0) return seconds;
     }
 
-    return undefined;
+    // Some 429 responses omit Retry-After. Use Groq's token-window reset header
+    // before falling back to the request-window reset header, when available.
+    const tokenReset = parseDurationSeconds(response.headers.get("x-ratelimit-reset-tokens"));
+    if (tokenReset !== undefined) return tokenReset;
+
+    return parseDurationSeconds(response.headers.get("x-ratelimit-reset-requests"));
 }
 
 function sleep(ms: number): Promise<void> {
@@ -160,7 +181,7 @@ async function callChatCompletions(
 
                 // Do not keep a user's chat request waiting for long provider cooldowns.
                 // Retry once only when the suggested wait is short; otherwise return 429
-                // immediately so the UI can explain the rate limit and the user can retry.
+                // immediately so the UI can show the provider-derived cooldown.
                 if (canRetry && retryDelayMs <= MAX_RETRY_DELAY_MS) {
                     console.warn(
                         `Groq rate limit reached; retrying in ${retryDelayMs}ms (attempt ${attempt + 1}/${MAX_RATE_LIMIT_RETRIES}).`,

@@ -14,6 +14,8 @@ const MAX_FILE_SIZE = 100 * 1024 * 1024;
 
 export default function DataUploadClient() {
     const [file, setFile] = useState<File | null>(null);
+    const [datasetName, setDatasetName] = useState("");
+    const [reportingPeriod, setReportingPeriod] = useState("");
     const [status, setStatus] = useState("");
     const [error, setError] = useState("");
     const [result, setResult] = useState<ImportResult | null>(null);
@@ -48,7 +50,7 @@ export default function DataUploadClient() {
     }
 
     async function upload() {
-        if (!file || loading) return;
+        if (!file || !datasetName.trim() || loading) return;
 
         setLoading(true);
         setError("");
@@ -62,6 +64,8 @@ export default function DataUploadClient() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     fileName: file.name,
+                    datasetName: datasetName.trim(),
+                    reportingPeriod: reportingPeriod.trim() || undefined,
                     sizeBytes: file.size,
                     contentType: file.type || "application/octet-stream",
                 }),
@@ -70,6 +74,8 @@ export default function DataUploadClient() {
             const prepareData = (await prepareResponse.json()) as {
                 uploadUrl?: string;
                 dataImportId?: string;
+                existingDataset?: boolean;
+                hasSchema?: boolean;
                 error?: string;
             };
 
@@ -77,7 +83,11 @@ export default function DataUploadClient() {
                 throw new Error(prepareData.error ?? "Unable to prepare the upload.");
             }
 
-            setStatus("Uploading file to local storage...");
+            setStatus(
+                prepareData.existingDataset && prepareData.hasSchema
+                    ? "Uploading to the existing dataset. Its column structure will be validated..."
+                    : "Uploading file to secure storage...",
+            );
 
             const uploadResponse = await fetch(prepareData.uploadUrl, {
                 method: "PUT",
@@ -93,7 +103,7 @@ export default function DataUploadClient() {
                 );
             }
 
-            setStatus("Importing rows into PostgreSQL...");
+            setStatus("Validating the schema and importing rows into PostgreSQL...");
 
             const importResponse = await fetch("/api/datasets/import", {
                 method: "POST",
@@ -113,7 +123,7 @@ export default function DataUploadClient() {
             }
 
             setResult(importData.dataImport);
-            setStatus("Import completed.");
+            setStatus("Import completed. The dataset is ready for Copilot.");
         } catch (uploadError) {
             setStatus("");
             setError(
@@ -131,8 +141,44 @@ export default function DataUploadClient() {
             <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
                 <h2 className="text-base font-semibold text-zinc-900">Upload company data</h2>
                 <p className="mt-1 text-sm text-zinc-500">
-                    Supported formats: CSV, XLS, XLSX. Maximum file size: 100 MB.
+                    Upload one CSV or Excel file at a time. Files using the same dataset name
+                    are treated as one logical dataset and must have the same columns.
                 </p>
+
+                <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                    <label className="block text-sm font-medium text-zinc-700">
+                        Dataset / table name
+                        <input
+                            type="text"
+                            value={datasetName}
+                            onChange={(event) => setDatasetName(event.target.value)}
+                            maxLength={80}
+                            placeholder="e.g. Sales Data"
+                            disabled={loading}
+                            required
+                            className="mt-2 block w-full rounded-xl border border-zinc-200 px-3 py-2.5 font-normal outline-none focus:border-zinc-500"
+                        />
+                        <span className="mt-1 block text-xs font-normal text-zinc-500">
+                            Reuse this name to add another file to the same dataset.
+                        </span>
+                    </label>
+
+                    <label className="block text-sm font-medium text-zinc-700">
+                        Reporting period <span className="font-normal text-zinc-400">(optional)</span>
+                        <input
+                            type="text"
+                            value={reportingPeriod}
+                            onChange={(event) => setReportingPeriod(event.target.value)}
+                            maxLength={80}
+                            placeholder="e.g. January 2026"
+                            disabled={loading}
+                            className="mt-2 block w-full rounded-xl border border-zinc-200 px-3 py-2.5 font-normal outline-none focus:border-zinc-500"
+                        />
+                        <span className="mt-1 block text-xs font-normal text-zinc-500">
+                            Helps distinguish monthly files and reporting snapshots.
+                        </span>
+                    </label>
+                </div>
 
                 <div className="mt-5 rounded-xl border-2 border-dashed border-zinc-200 p-8 text-center">
                     <input
@@ -155,10 +201,10 @@ export default function DataUploadClient() {
                     <button
                         type="button"
                         onClick={() => void upload()}
-                        disabled={!file || loading}
+                        disabled={!file || !datasetName.trim() || loading}
                         className="mt-5 rounded-xl bg-zinc-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                        {loading ? "Processing..." : "Upload and import"}
+                        {loading ? "Processing..." : "Validate and import"}
                     </button>
                 </div>
 

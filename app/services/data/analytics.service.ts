@@ -5,7 +5,11 @@ import { requireHR } from "@/app/lib/ai/permissions";
 import { Prisma } from "../../../generated/prisma/client";
 import { prisma } from "@/app/lib/prisma";
 import type { ServiceContext } from "@/app/lib/ai/types";
-import { assertDatasetColumns, assertDatasetNumericColumns } from "@/app/services/data/dataset-schema.service";
+import {
+    assertDatasetColumns,
+    assertDatasetNumericColumns,
+    assertReportingPeriodSelection,
+} from "@/app/services/data/dataset-schema.service";
 
 export interface CompanyDataFilter {
     column: string;
@@ -58,7 +62,7 @@ function buildWhere(
                 WHERE period_import.id = "DataRecord"."dataImportId"
                   AND period_import.status = 'COMPLETED'
                   AND period_import."isActive" = true
-                  AND period_import."reportingPeriod" = ${reportingPeriod}
+                  AND LOWER(BTRIM(period_import."reportingPeriod")) = LOWER(BTRIM(${reportingPeriod}))
             )`;
     }
 
@@ -105,6 +109,7 @@ export async function aggregateCompanyData(
     },
 ) {
     const source = await assertDataSource(context, input.dataSourceId);
+    await assertReportingPeriodSelection(context, input.dataSourceId, input.reportingPeriod);
     await assertDatasetColumns(context, input.dataSourceId, [
         ...(input.operation === "count" ? [] : input.column ? [input.column] : []),
         ...(input.filters ?? []).map((filter) => filter.column),
@@ -170,6 +175,7 @@ export async function compareCompanyData(
     },
 ) {
     const source = await assertDataSource(context, input.dataSourceId);
+    await assertReportingPeriodSelection(context, input.dataSourceId, input.reportingPeriod);
     await assertDatasetColumns(context, input.dataSourceId, [
         input.column,
         ...(input.filters ?? []).map((filter) => filter.column),
@@ -228,6 +234,7 @@ export async function groupCompanyData(
     },
 ) {
     const source = await assertDataSource(context, input.dataSourceId);
+    await assertReportingPeriodSelection(context, input.dataSourceId, input.reportingPeriod);
     await assertDatasetColumns(context, input.dataSourceId, [
         input.groupBy,
         ...(input.operation !== "count" && input.metricColumn ? [input.metricColumn] : []),

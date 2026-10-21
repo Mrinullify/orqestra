@@ -2,6 +2,7 @@ import "server-only";
 
 import { prisma } from "@/app/lib/prisma";
 import type { ServiceContext } from "@/app/lib/ai/types";
+import { requiresReportingPeriod } from "@/app/services/data/period-semantics";
 
 function readSchemaColumns(schema: unknown): string[] {
     if (!schema || typeof schema !== "object" || Array.isArray(schema)) return [];
@@ -9,6 +10,65 @@ function readSchemaColumns(schema: unknown): string[] {
     return Array.isArray(columns)
         ? columns.filter((column): column is string => typeof column === "string")
         : [];
+}
+
+/**
+ * Enforce safe period semantics before a query reaches PostgreSQL.
+ * A named period must exist and be active. Snapshot datasets with multiple
+ * active imports require an explicit period to prevent accidental double-counting.
+ */
+export async function assertReportingPeriodSelection(
+    context: ServiceContext,
+    dataSourceId: string,
+    reportingPeriod?: string,
+) {
+    const source = await prisma.dataSource.findFirst({
+        where: {
+            id: dataSourceId,
+            organizationId: context.organizationId,
+        },
+        select: { periodMode: true },
+    });
+
+    if (!source) throw new Error("Data source not found.");
+
+    if (reportingPeriod?.trim()) {
+        const matchingImport = await prisma.dataImport.findFirst({
+            where: {
+                dataSourceId,
+                status: "COMPLETED",
+                isActive: true,
+                reportingPeriod: {
+                    equals: reportingPeriod.trim(),
+                    mode: "insensitive",
+                },
+            },
+            select: { id: true },
+        });
+
+        if (!matchingImport) {
+            throw new Error(
+                `No active import exists for reporting period "${reportingPeriod.trim()}". Choose a period listed for this dataset.`,
+            );
+        }
+        return;
+    }
+
+    if (source.periodMode === "SNAPSHOT") {
+        const activeImportCount = await prisma.dataImport.count({
+            where: {
+                dataSourceId,
+                status: "COMPLETED",
+                isActive: true,
+            },
+        });
+
+        if (requiresReportingPeriod(source.periodMode, activeImportCount, reportingPeriod)) {
+            throw new Error(
+                "This snapshot dataset contains multiple active periods. Specify one reportingPeriod; combining snapshots could double-count records.",
+            );
+        }
+    }
 }
 
 /**

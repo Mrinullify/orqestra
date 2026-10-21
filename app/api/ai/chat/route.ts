@@ -7,6 +7,7 @@ import { generateResponse, LlmConnectionError, LlmRateLimitError, type LlmMessag
 import { toolRegistry, executeTool } from "@/app/ai/tools";
 import { getToolContext } from "@/app/lib/ai/context";
 import { ApprovalRequiredError } from "@/app/lib/ai/approvals";
+import { getCopilotDataContext } from "@/app/services/data/data-sources.service";
 
 const MAX_HISTORY_MESSAGES = 8;
 const MAX_HISTORY_MESSAGE_CHARS = 2000;
@@ -55,7 +56,9 @@ Rules:
 - When the user asks what datasets, files, or uploaded company data are available, use list_data_sources first.
 - When you need the columns or structure of a specific dataset, use inspect_data_source after identifying its dataSourceId.
 - Use query_company_data to retrieve actual rows or answer non-aggregate questions about values in uploaded data.
-- Analytics tools require a dataSourceId. If you do not know which dataset contains the requested data, use list_data_sources first, then inspect_data_source if the columns are unclear.
+- The available dataset context below already contains dataset IDs, import status, row counts, and column names. Use it directly to select the right dataSourceId and column names. Do NOT call list_data_sources or inspect_data_source just to rediscover information already shown here.
+- Call list_data_sources only if the user specifically asks to list available files/datasets or if the context below is empty and you need to discover them.
+- Call inspect_data_source only when the required information is genuinely missing from the context below.
 - For broad text lookup, use search.
 - For unsupported requests, explain what is currently supported.
 - Keep responses concise and useful.
@@ -153,8 +156,18 @@ export async function POST(request: Request) {
                 content: message.content.slice(-MAX_HISTORY_MESSAGE_CHARS),
             }));
 
+        // Fetch compact organization-scoped dataset metadata once so the model
+        // doesn't spend separate LLM rounds listing and inspecting the same source.
+        const datasetContext = await getCopilotDataContext(context);
+        const datasetContextText = datasetContext.length
+            ? JSON.stringify(datasetContext)
+            : "No uploaded datasets are currently available for this organization.";
+
         const messages: LlmMessage[] = [
-            { role: "system", content: systemPrompt },
+            {
+                role: "system",
+                content: `${systemPrompt}\n\nAvailable dataset context (trusted server-provided metadata):\n${datasetContextText}`,
+            },
             ...conversation,
             { role: "user", content: parsed.data.message },
         ];

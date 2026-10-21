@@ -35,6 +35,7 @@ function buildWhere(
     context: ServiceContext,
     dataSourceId: string,
     filters: CompanyDataFilter[] = [],
+    reportingPeriod?: string,
 ) {
     let where = Prisma.sql`
         "organizationId" = ${context.organizationId}
@@ -47,6 +48,18 @@ function buildWhere(
               AND import_record."isActive" = true
         )
     `;
+
+    if (reportingPeriod) {
+        where = Prisma.sql`${where}
+            AND EXISTS (
+                SELECT 1
+                FROM "DataImport" AS period_import
+                WHERE period_import.id = "DataRecord"."dataImportId"
+                  AND period_import.status = 'COMPLETED'
+                  AND period_import."isActive" = true
+                  AND period_import."reportingPeriod" = ${reportingPeriod}
+            )`;
+    }
 
     for (const filter of filters) {
         where = Prisma.sql`${where}
@@ -86,6 +99,7 @@ export async function aggregateCompanyData(
         operation: "count" | "sum" | "average" | "min" | "max";
         column?: string;
         filters?: CompanyDataFilter[];
+        reportingPeriod?: string;
     },
 ) {
     const source = await assertDataSource(context, input.dataSourceId);
@@ -93,7 +107,7 @@ export async function aggregateCompanyData(
         ...(input.operation === "count" ? [] : input.column ? [input.column] : []),
         ...(input.filters ?? []).map((filter) => filter.column),
     ]);
-    const where = buildWhere(context, input.dataSourceId, input.filters);
+    const where = buildWhere(context, input.dataSourceId, input.filters, input.reportingPeriod);
 
     if (input.operation === "count") {
         const rows = await prisma.$queryRaw<Array<{ value: bigint }>>(Prisma.sql`
@@ -148,6 +162,7 @@ export async function compareCompanyData(
         operator: "gt" | "gte" | "lt" | "lte" | "eq";
         value: number;
         filters?: CompanyDataFilter[];
+        reportingPeriod?: string;
         limit: number;
     },
 ) {
@@ -156,7 +171,7 @@ export async function compareCompanyData(
         input.column,
         ...(input.filters ?? []).map((filter) => filter.column),
     ]);
-    const where = buildWhere(context, input.dataSourceId, input.filters);
+    const where = buildWhere(context, input.dataSourceId, input.filters, input.reportingPeriod);
     const expression = numericExpression(input.column);
 
     const comparison =
@@ -213,7 +228,7 @@ export async function groupCompanyData(
         ...(input.operation !== "count" && input.metricColumn ? [input.metricColumn] : []),
         ...(input.filters ?? []).map((filter) => filter.column),
     ]);
-    const where = buildWhere(context, input.dataSourceId, input.filters);
+    const where = buildWhere(context, input.dataSourceId, input.filters, input.reportingPeriod);
 
     if (input.operation !== "count" && !input.metricColumn) {
         throw new Error("A numeric metric column is required for this operation.");

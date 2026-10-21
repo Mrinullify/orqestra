@@ -56,3 +56,38 @@ export async function assertDatasetColumns(
         }
     }
 }
+
+/**
+ * Reject non-numeric columns before running numeric aggregates. Older datasets
+ * without stored type metadata retain the strict SQL numeric parser as fallback.
+ */
+export async function assertDatasetNumericColumns(
+    context: ServiceContext,
+    dataSourceId: string,
+    requestedColumns: string[],
+) {
+    if (!requestedColumns.length) return;
+
+    const source = await prisma.dataSource.findFirst({
+        where: {
+            id: dataSourceId,
+            organizationId: context.organizationId,
+        },
+        select: { schema: true },
+    });
+
+    if (!source) throw new Error("Data source not found.");
+    if (!source.schema || typeof source.schema !== "object" || Array.isArray(source.schema)) return;
+
+    const types = (source.schema as Record<string, unknown>).types;
+    if (!types || typeof types !== "object" || Array.isArray(types)) return;
+
+    const columnTypes = types as Record<string, unknown>;
+    for (const column of requestedColumns) {
+        if (columnTypes[column] !== undefined && columnTypes[column] !== "number") {
+            throw new Error(
+                `Column "${column}" is typed as ${String(columnTypes[column])} in this dataset, not number. Choose a numeric column or correct the uploaded data.`,
+            );
+        }
+    }
+}

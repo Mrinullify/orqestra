@@ -7,6 +7,7 @@ import { prisma } from "@/app/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
 import { getObjectBytes } from "@/app/lib/storage";
 import type { ServiceContext } from "@/app/lib/ai/types";
+import { normalizeHeaders, readDatasetSchemaColumns, validateDatasetSchema } from "@/app/services/data/schema-contract";
 
 const MAX_IMPORT_ROWS = 250_000;
 const BATCH_SIZE = 1_000;
@@ -15,67 +16,6 @@ type ParsedRows = {
     rows: Array<Record<string, unknown>>;
     headers: string[];
 };
-
-function normalizeColumnName(value: string): string {
-    return value
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "_")
-        .replace(/^_+|_+$/g, "");
-}
-
-/**
- * Column names are part of a dataset's contract. Do not silently rename
- * collisions (for example, "Employee ID" and "employee-id") because that
- * makes queries ambiguous and hides malformed input.
- */
-function normalizeHeaders(headers: string[]): string[] {
-    const normalized = headers.map(normalizeColumnName);
-    const seen = new Set<string>();
-
-    for (const [index, header] of headers.entries()) {
-        if (!header.trim() || !normalized[index]) {
-            throw new Error("Column headers cannot be empty.");
-        }
-        if (seen.has(normalized[index])) {
-            throw new Error(
-                `Duplicate column headers after normalization: "${header}". Rename the conflicting columns and upload again.`,
-            );
-        }
-        seen.add(normalized[index]);
-    }
-
-    return normalized;
-}
-
-function getSchemaColumns(value: unknown): string[] | null {
-    if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-
-    const columns = (value as Record<string, unknown>).columns;
-    if (!Array.isArray(columns) || !columns.every((column) => typeof column === "string")) {
-        return null;
-    }
-
-    return columns;
-}
-
-function validateSchema(expected: string[], actual: string[]) {
-    const expectedSet = new Set(expected);
-    const actualSet = new Set(actual);
-    const missing = expected.filter((column) => !actualSet.has(column));
-    const unexpected = actual.filter((column) => !expectedSet.has(column));
-
-    if (missing.length || unexpected.length) {
-        const details = [
-            missing.length ? `Missing columns: ${missing.join(", ")}` : "",
-            unexpected.length ? `Unexpected columns: ${unexpected.join(", ")}` : "",
-        ].filter(Boolean).join(". ");
-
-        throw new Error(
-            `This file does not match the schema for this dataset. ${details}. The existing dataset was not changed.`,
-        );
-    }
-}
 
 function buildRecords(
     rows: Array<Record<string, unknown>>,
@@ -197,7 +137,7 @@ export async function processDataImport(
         }
 
         const normalizedHeaders = normalizeHeaders(parsed.headers);
-        const storedSchemaColumns = getSchemaColumns(dataImport.dataSource.schema);
+        const storedSchemaColumns = readDatasetSchemaColumns(dataImport.dataSource.schema);
         let expectedColumns = storedSchemaColumns;
 
         // Adopt the column contract from the latest successful legacy import
@@ -223,7 +163,7 @@ export async function processDataImport(
         }
 
         if (expectedColumns) {
-            validateSchema(
+            validateDatasetSchema(
                 [...expectedColumns].sort(),
                 [...normalizedHeaders].sort(),
             );

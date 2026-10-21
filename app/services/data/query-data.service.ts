@@ -1,5 +1,7 @@
 import "server-only";
 
+import { requireHR } from "@/app/lib/ai/permissions";
+
 import { Prisma } from "../../../generated/prisma/client";
 import { prisma } from "@/app/lib/prisma";
 import type { ServiceContext } from "@/app/lib/ai/types";
@@ -19,7 +21,8 @@ export async function queryCompanyData(
         filters?: CompanyDataFilter[];
         limit: number;
     },
-) {
+ ) {
+    requireHR(context);
     const dataSource = await prisma.dataSource.findFirst({
         where: {
             id: input.dataSourceId,

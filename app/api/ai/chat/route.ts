@@ -13,6 +13,40 @@ const MAX_HISTORY_MESSAGES = 8;
 const MAX_HISTORY_MESSAGE_CHARS = 2000;
 const MAX_TOOL_RESULT_CHARS = 12000;
 const MAX_TOOL_ROUNDS = 3;
+type ChartPayload = {
+    type: "bar";
+    title: string;
+    xAxisLabel: string;
+    yAxisLabel: string;
+    points: Array<{ label: string; value: number }>;
+};
+
+function buildChartPayload(result: unknown): ChartPayload | null {
+    if (!result || typeof result !== "object") return null;
+    const record = result as Record<string, unknown>;
+    if (!Array.isArray(record.groups)) return null;
+    const points = record.groups.flatMap((item) => {
+        if (!item || typeof item !== "object") return [];
+        const group = item as Record<string, unknown>;
+        const rawValue = group.value;
+        const value = typeof rawValue === "number" ? rawValue : typeof rawValue === "string" ? Number(rawValue) : NaN;
+        if (!Number.isFinite(value)) return [];
+        const label = group.groupValue === null || group.groupValue === undefined ? "(Not specified)" : String(group.groupValue);
+        return [{ label, value }];
+    });
+    if (points.length === 0) return null;
+    const groupBy = typeof record.groupBy === "string" ? record.groupBy : "Group";
+    const operation = typeof record.operation === "string" ? record.operation : "value";
+    const metricColumn = typeof record.metricColumn === "string" ? record.metricColumn : null;
+    const dataSource = record.dataSource && typeof record.dataSource === "object" ? (record.dataSource as Record<string, unknown>).name : null;
+    return {
+        type: "bar",
+        title: operation.charAt(0).toUpperCase() + operation.slice(1) + " by " + groupBy + (typeof dataSource === "string" ? " · " + dataSource : ""),
+        xAxisLabel: groupBy,
+        yAxisLabel: metricColumn ?? operation,
+        points,
+    };
+}
 
 const requestSchema = z.object({
     message: z.string().trim().min(1).max(4000),
@@ -50,6 +84,10 @@ Rules:
 - The currently available AI tools are read-only. Do not claim to have changed or deleted data.
 - For questions about uploaded CSV/Excel data (including salary, department, name, counts, or other imported columns), use the company-data tools. Do not use list_employees or find_employee for values that come from uploaded company data.
 - For calculations such as counts, averages, sums, minimums, maximums, or grouped statistics, ALWAYS use aggregate_company_data or group_company_data so PostgreSQL performs the calculation. Do not calculate these values yourself from rows.
+- For questions comparing a category such as department, location, or employment type, use group_company_data with the requested metric and category. For company-wide baselines, also use aggregate_company_data; explain the difference using both retrieved results.
+- For questions asking what explains a result, investigate the data with relevant grouped comparisons or filters. Clearly distinguish measured evidence from hypotheses; never claim causation unless the data supports it.
+- For chart, graph, plot, or visualization requests, retrieve the appropriate grouped results with group_company_data. The server will render a chart from those actual results. Never invent or estimate chart values. If the requested chart cannot be supported by available columns, say what data is missing.
+- For follow-up questions, preserve the prior dataset and relevant filters from the conversation unless the user changes them. Do not repeat an identical tool call when its result is already present; use the existing evidence or make a genuinely different query.
 - For numeric threshold questions such as who earns more than 80000, use compare_company_data so PostgreSQL performs the comparison.
 - For a person lookup in uploaded data, use query_company_data with search set to the person name, such as search="Aman".
 - Use filters with the uploaded column name and value for exact matching.
@@ -173,6 +211,8 @@ export async function POST(request: Request) {
         ];
 
         const tools = buildToolDefinitions();
+        const chartRequested = /\b(chart|graph|plot|visuali[sz]e|visualization)\b/i.test(parsed.data.message);
+        let chart: ChartPayload | null = null;
         const toolEvidence: Array<{ tool: string; result: string }> = [];
 
         for (let iteration = 0; iteration < MAX_TOOL_ROUNDS; iteration += 1) {
@@ -192,6 +232,7 @@ export async function POST(request: Request) {
             if (!assistant.tool_calls?.length) {
                 return NextResponse.json({
                     message: assistant.content ?? "",
+                    ...(chart ? { chart } : {}),
                     requestId: context.requestId,
                 });
             }
@@ -223,6 +264,10 @@ export async function POST(request: Request) {
                         rawArgs,
                         context,
                     );
+
+                    if (chartRequested && toolCall.function.name === "group_company_data") {
+                        chart = buildChartPayload(result);
+                    }
 
                     const serializedResult = serializeToolResult(result);
                     toolEvidence.push({
@@ -281,6 +326,7 @@ export async function POST(request: Request) {
             if (finalResponse.message.content?.trim()) {
                 return NextResponse.json({
                     message: finalResponse.message.content,
+                    ...(chart ? { chart } : {}),
                     requestId: context.requestId,
                 });
             }
@@ -293,6 +339,7 @@ export async function POST(request: Request) {
 
         return NextResponse.json({
             message: "I retrieved some data, but couldn't finish summarizing it in this response. Please try again with a more specific question.",
+            ...(chart ? { chart } : {}),
             requestId: context.requestId,
         });
     } catch (error) {

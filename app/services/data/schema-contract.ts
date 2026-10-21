@@ -1,7 +1,7 @@
 export type DatasetColumnType = "number" | "date" | "boolean" | "string" | "mixed" | "unknown";
 
 function normalizeNumericValue(value: unknown): string {
-    return String(value ?? "").trim().replace(/[$,£€\s]/g, "");
+    return String(value ?? "").trim().replace(/[$,£€₹\s]/g, "");
 }
 
 function isNumericValue(value: unknown): boolean {

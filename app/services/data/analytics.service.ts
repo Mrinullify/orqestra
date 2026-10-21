@@ -221,6 +221,7 @@ export async function groupCompanyData(
         operation: "count" | "sum" | "average" | "min" | "max";
         metricColumn?: string;
         filters?: CompanyDataFilter[];
+        reportingPeriod?: string;
         limit: number;
     },
 ) {

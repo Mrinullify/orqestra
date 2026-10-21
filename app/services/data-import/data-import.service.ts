@@ -36,15 +36,58 @@ function buildRecords(
     });
 }
 
+function rowsFromMatrix(
+    matrix: unknown[][],
+    sourceType: "CSV" | "EXCEL",
+): ParsedRows {
+    if (matrix.length === 0 || !matrix[0]?.length) {
+        throw new Error("The file must contain a header row and at least one data row.");
+    }
+
+    const headers = matrix[0].map((value) =>
+        value === null || value === undefined ? "" : String(value).trim(),
+    );
+    // Validate before converting rows into objects; object conversion would hide
+    // duplicate header names by overwriting one of the values.
+    normalizeHeaders(headers);
+
+    const rawRows = matrix.slice(1).filter((row) =>
+        row.some((value) => value !== null && value !== undefined && String(value).trim() !== ""),
+    );
+    if (rawRows.length === 0) {
+        throw new Error("The file must contain a header and at least one data row.");
+    }
+
+    const rows = rawRows.map((row, index) => {
+        if (row.length > headers.length && row.slice(headers.length).some(
+            (value) => value !== null && value !== undefined && String(value).trim() !== "",
+        )) {
+            throw new Error(`Row ${index + 2} contains more values than the header defines.`);
+        }
+        if (sourceType === "CSV" && row.length !== headers.length) {
+            throw new Error(
+                `Row ${index + 2} has ${row.length} columns; expected ${headers.length} based on the header.`,
+            );
+        }
+
+        const record: Record<string, unknown> = {};
+        headers.forEach((header, headerIndex) => {
+            record[header] = row[headerIndex] ?? null;
+        });
+        return record;
+    });
+
+    return { rows, headers };
+}
+
 async function parseRows(
     bytes: Uint8Array,
     type: "CSV" | "EXCEL",
 ): Promise<ParsedRows> {
     if (type === "CSV") {
         const text = Buffer.from(bytes).toString("utf8");
-
-        const result = Papa.parse<Record<string, unknown>>(text, {
-            header: true,
+        const result = Papa.parse<string[]>(text, {
+            header: false,
             skipEmptyLines: "greedy",
         });
 
@@ -57,12 +100,7 @@ async function parseRows(
             );
         }
 
-        const headers = (result.meta.fields ?? []).map((header) => header.trim());
-        if (headers.length === 0) {
-            throw new Error("The CSV must contain a header row.");
-        }
-
-        return { rows: result.data, headers };
+        return rowsFromMatrix(result.data, "CSV");
     }
 
     const workbook = XLSX.read(Buffer.from(bytes), {
@@ -76,17 +114,14 @@ async function parseRows(
     }
 
     const sheet = workbook.Sheets[firstSheet];
-    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
+    const matrix = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
+        header: 1,
         defval: null,
         raw: false,
+        blankrows: false,
     });
 
-    const headers = rows.length > 0 ? Object.keys(rows[0]).map((header) => header.trim()) : [];
-    if (headers.length === 0) {
-        throw new Error("The Excel sheet must contain a header row and data.");
-    }
-
-    return { rows, headers };
+    return rowsFromMatrix(matrix, "EXCEL");
 }
 
 export async function processDataImport(

@@ -197,7 +197,8 @@ export async function processDataImport(
         }
 
         const normalizedHeaders = normalizeHeaders(parsed.headers);
-        let expectedColumns = getSchemaColumns(dataImport.dataSource.schema);
+        const storedSchemaColumns = getSchemaColumns(dataImport.dataSource.schema);
+        let expectedColumns = storedSchemaColumns;
 
         // Adopt the column contract from the latest successful legacy import
         // when this dataset predates the schema-contract migration.
@@ -269,13 +270,13 @@ export async function processDataImport(
             });
         }
 
-        if (!expectedColumns) {
+        if (!storedSchemaColumns) {
             await prisma.dataSource.update({
                 where: { id: dataImport.dataSourceId },
                 data: {
                     schema: {
                         version: 1,
-                        columns: normalizedHeaders,
+                        columns: expectedColumns ?? normalizedHeaders,
                     } as Prisma.InputJsonValue,
                 },
             });

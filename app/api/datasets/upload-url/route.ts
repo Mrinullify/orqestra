@@ -94,7 +94,14 @@ export async function POST(request: Request) {
             );
         }
 
-        if (reportingPeriod && reportingPeriod.length > 80) {
+        if (!reportingPeriod) {
+            return NextResponse.json(
+                { error: "Provide a reporting period or snapshot label for every uploaded file (for example, October 2026 or Current)." },
+                { status: 400 },
+            );
+        }
+
+        if (reportingPeriod.length > 80) {
             return NextResponse.json(
                 { error: "Reporting period must be 80 characters or fewer." },
                 { status: 400 },
@@ -133,14 +140,7 @@ export async function POST(request: Request) {
 
         const existingSource = matchingSources[0] ?? null;
 
-        if (existingSource && !reportingPeriod) {
-            return NextResponse.json(
-                { error: "A reporting period or snapshot label is required when adding another file to an existing dataset, to prevent accidental double-counting." },
-                { status: 400 },
-            );
-        }
-
-        if (existingSource && reportingPeriod) {
+remove redundant period validation        if (existingSource && reportingPeriod) {
             const existingPeriod = await prisma.dataImport.findFirst({
                 where: {
                     dataSourceId: existingSource.id,

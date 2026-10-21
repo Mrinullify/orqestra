@@ -15,6 +15,7 @@ export async function queryCompanyData(
     input: {
         dataSourceId: string;
         search?: string;
+        reportingPeriod?: string;
         filters?: CompanyDataFilter[];
         limit: number;
     },
@@ -48,6 +49,18 @@ export async function queryCompanyData(
               AND import_record."isActive" = true
         )
     `;
+
+    if (input.reportingPeriod) {
+        where = Prisma.sql`${where}
+            AND EXISTS (
+                SELECT 1
+                FROM "DataImport" AS period_import
+                WHERE period_import.id = "DataRecord"."dataImportId"
+                  AND period_import.status = 'COMPLETED'
+                  AND period_import."isActive" = true
+                  AND period_import."reportingPeriod" = ${input.reportingPeriod}
+            )`;
+    }
 
     for (const filter of input.filters ?? []) {
         where = Prisma.sql`${where}

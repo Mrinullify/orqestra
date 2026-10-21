@@ -52,7 +52,7 @@ export default function DataUploadClient() {
     }
 
     async function upload() {
-        if (!file || !datasetName.trim() || !periodMode || loading) return;
+        if (!file || !datasetName.trim() || !periodMode || !reportingPeriod.trim() || loading) return;
 
         setLoading(true);
         setError("");
@@ -171,18 +171,19 @@ export default function DataUploadClient() {
                     </label>
 
                     <label className="block text-sm font-medium text-zinc-700">
-                        Reporting period <span className="font-normal text-zinc-400">(required for repeat uploads)</span>
+                        Reporting period / snapshot label <span className="font-normal text-zinc-400">(required)</span>
                         <input
                             type="text"
                             value={reportingPeriod}
                             onChange={(event) => { setReportingPeriod(event.target.value); setReplaceExistingPeriod(false); }}
                             maxLength={80}
-                            placeholder="e.g. January 2026"
+                            placeholder="e.g. October 2026 or Current"
                             disabled={loading}
+                            required
                             className="mt-2 block w-full rounded-xl border border-zinc-200 px-3 py-2.5 font-normal outline-none focus:border-zinc-500"
                         />
                         <span className="mt-1 block text-xs font-normal text-zinc-500">
-                            Helps distinguish monthly files and reporting snapshots. Required when adding another file to an existing dataset.
+                            Every file needs a period label so Orqestra can select the correct data without guessing.
                         </span>
                     </label>
                 </div>
@@ -242,7 +243,7 @@ export default function DataUploadClient() {
                     <button
                         type="button"
                         onClick={() => void upload()}
-                        disabled={!file || !datasetName.trim() || !periodMode || loading}
+                        disabled={!file || !datasetName.trim() || !periodMode || !reportingPeriod.trim() || loading}
                         className="mt-5 rounded-xl bg-zinc-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                         {loading ? "Processing..." : "Validate and import"}

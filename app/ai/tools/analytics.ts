@@ -28,7 +28,7 @@ export const aggregateCompanyDataTool: ToolDefinition<typeof aggregateCompanyDat
     description:
         "Run a database-side aggregate on one uploaded company dataset. Use count for record counts, or sum/average/min/max for a numeric column such as salary. Use filters for exact column values and reportingPeriod to limit calculations to one imported period. This tool performs the calculation in PostgreSQL; do not calculate the result from returned rows.",
     inputSchema: aggregateCompanyDataSchema,
-    allowedRoles: ["HR", "EMPLOYEE"],
+    allowedRoles: ["HR"],
     execute: async (input: AggregateCompanyDataInput, context) =>
         aggregateCompanyData(context, input),
 };
@@ -50,7 +50,7 @@ export const compareCompanyDataTool: ToolDefinition<typeof compareCompanyDataSch
     description:
         "Find uploaded company-data rows whose numeric column matches a comparison such as salary greater than 80000. Use gt/gte/lt/lte/eq. The comparison is executed in PostgreSQL. Use reportingPeriod when the user asks about a specific import period. Use this when the user asks who earns above/below a threshold or similar numeric conditions.",
     inputSchema: compareCompanyDataSchema,
-    allowedRoles: ["HR", "EMPLOYEE"],
+    allowedRoles: ["HR"],
     execute: async (input: CompareCompanyDataInput, context) =>
         compareCompanyData(context, input),
 };
@@ -72,7 +72,7 @@ export const groupCompanyDataTool: ToolDefinition<typeof groupCompanyDataSchema>
     description:
         "Group one uploaded company dataset by a column such as department and calculate count, sum, average, min, or max. For count, metricColumn is not needed. For other operations, provide a numeric metricColumn such as salary. Use reportingPeriod to scope results to a particular uploaded period. Results are calculated in PostgreSQL and ordered by the aggregate descending.",
     inputSchema: groupCompanyDataSchema,
-    allowedRoles: ["HR", "EMPLOYEE"],
+    allowedRoles: ["HR"],
     execute: async (input: GroupCompanyDataInput, context) =>
         groupCompanyData(context, input),
 };

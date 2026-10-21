@@ -15,6 +15,7 @@ const MAX_FILE_SIZE = 100 * 1024 * 1024;
 export default function DataUploadClient() {
     const [file, setFile] = useState<File | null>(null);
     const [datasetName, setDatasetName] = useState("");
+    const [periodMode, setPeriodMode] = useState<"" | "ADDITIVE" | "SNAPSHOT">("");
     const [reportingPeriod, setReportingPeriod] = useState("");
     const [replaceExistingPeriod, setReplaceExistingPeriod] = useState(false);
     const [status, setStatus] = useState("");
@@ -51,7 +52,7 @@ export default function DataUploadClient() {
     }
 
     async function upload() {
-        if (!file || !datasetName.trim() || loading) return;
+        if (!file || !datasetName.trim() || !periodMode || loading) return;
 
         setLoading(true);
         setError("");
@@ -66,6 +67,7 @@ export default function DataUploadClient() {
                 body: JSON.stringify({
                     fileName: file.name,
                     datasetName: datasetName.trim(),
+                    periodMode,
                     reportingPeriod: reportingPeriod.trim() || undefined,
                     replaceExistingPeriod: Boolean(reportingPeriod.trim()) && replaceExistingPeriod,
                     sizeBytes: file.size,
@@ -78,6 +80,7 @@ export default function DataUploadClient() {
                 dataImportId?: string;
                 existingDataset?: boolean;
                 hasSchema?: boolean;
+                periodMode?: "ADDITIVE" | "SNAPSHOT";
                 error?: string;
             };
 
@@ -85,9 +88,11 @@ export default function DataUploadClient() {
                 throw new Error(prepareData.error ?? "Unable to prepare the upload.");
             }
 
+            const effectivePeriodMode = prepareData.periodMode ?? periodMode;
+            setPeriodMode(effectivePeriodMode);
             setStatus(
-                prepareData.existingDataset && prepareData.hasSchema
-                    ? "Uploading to the existing dataset. Its column structure will be validated..."
+                prepareData.existingDataset
+                    ? `Using the existing dataset's ${effectivePeriodMode === "SNAPSHOT" ? "snapshot" : "additive"} period mode. Its column structure will be validated...`
                     : "Uploading file to secure storage...",
             );
 
@@ -182,6 +187,24 @@ export default function DataUploadClient() {
                     </label>
                 </div>
 
+                <label className="mt-4 block text-sm font-medium text-zinc-700">
+                    How should reporting periods be handled?
+                    <select
+                        value={periodMode}
+                        onChange={(event) => setPeriodMode(event.target.value as "" | "ADDITIVE" | "SNAPSHOT")}
+                        disabled={loading}
+                        required
+                        className="mt-2 block w-full rounded-xl border border-zinc-200 bg-white px-3 py-2.5 font-normal outline-none focus:border-zinc-500"
+                    >
+                        <option value="">Choose a data behavior...</option>
+                        <option value="ADDITIVE">Additive periods — combine separate periods (e.g. monthly sales)</option>
+                        <option value="SNAPSHOT">Snapshots — each period is a separate state (e.g. employee roster)</option>
+                    </select>
+                    <span className="mt-1 block text-xs font-normal text-zinc-500">
+                        This setting is fixed when the dataset is created. Existing datasets keep their original behavior.
+                    </span>
+                </label>
+
                 <label className="mt-4 flex items-start gap-3 rounded-xl border border-zinc-200 p-4 text-sm text-zinc-700">
                     <input
                         type="checkbox"
@@ -219,7 +242,7 @@ export default function DataUploadClient() {
                     <button
                         type="button"
                         onClick={() => void upload()}
-                        disabled={!file || !datasetName.trim() || loading}
+                        disabled={!file || !datasetName.trim() || !periodMode || loading}
                         className="mt-5 rounded-xl bg-zinc-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                         {loading ? "Processing..." : "Validate and import"}

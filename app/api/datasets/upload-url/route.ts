@@ -50,7 +50,6 @@ export async function POST(request: Request) {
             reportingPeriod?: unknown;
             replaceExistingPeriod?: unknown;
             sizeBytes?: unknown;
-            contentType?: unknown;
         };
 
         const fileName =
@@ -64,10 +63,7 @@ export async function POST(request: Request) {
         const replaceExistingPeriod = body.replaceExistingPeriod === true;
         const sizeBytes =
             typeof body.sizeBytes === "number" ? body.sizeBytes : 0;
-        const requestedContentType =
-            typeof body.contentType === "string" && body.contentType
-                ? body.contentType
-                : "application/octet-stream";
+
 
         const extension = getExtension(fileName);
         const fileConfig = allowedExtensions.get(extension);

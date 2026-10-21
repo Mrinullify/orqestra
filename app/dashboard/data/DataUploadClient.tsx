@@ -144,7 +144,7 @@ export default function DataUploadClient() {
                 <h2 className="text-base font-semibold text-zinc-900">Upload company data</h2>
                 <p className="mt-1 text-sm text-zinc-500">
                     Upload one CSV or Excel file at a time. Files using the same dataset name
-                    are treated as one logical dataset and must have the same columns.
+                    are treated as one logical dataset and must keep the same column names and compatible data types.
                 </p>
 
                 <div className="mt-5 grid gap-4 sm:grid-cols-2">

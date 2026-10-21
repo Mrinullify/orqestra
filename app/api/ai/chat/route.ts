@@ -173,7 +173,7 @@ export async function POST(request: Request) {
 
         const roleInstruction = context.role === "HR"
             ? ""
-            : "\\n\\nAuthorization note: Employee self-service access to company data is not enabled yet. Do not attempt employee-directory or company-dataset lookups, and do not invent data. Explain that this capability is currently restricted to HR.";
+            : "\n\nAuthorization note: Employee self-service access to company data is not enabled yet. Do not attempt employee-directory or company-dataset lookups, and do not invent data. Explain that this capability is currently restricted to HR.";
 
         const messages: LlmMessage[] = [
             {

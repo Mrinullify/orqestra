@@ -203,7 +203,7 @@ export async function processDataImport(
             if (!expectedColumns && previousColumns.length) expectedColumns = previousColumns;
 
             if (!expectedTypes) {
-                const knownTypes = new Set(["number", "date", "boolean", "string", "mixed", "unknown"]);
+                const knownTypes = new Set(["number", "date", "boolean", "string", "mixed"]);
                 const previousTypes: Record<string, DatasetColumnType> = {};
                 for (const mapping of mappings) {
                     if (mapping.detectedType && knownTypes.has(mapping.detectedType)) {

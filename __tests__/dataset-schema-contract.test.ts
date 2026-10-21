@@ -1,6 +1,8 @@
 import {
+    inferDatasetColumnTypes,
     normalizeHeaders,
     readDatasetSchemaColumns,
+    validateDatasetColumnTypes,
     validateDatasetSchema,
 } from "@/app/services/data/schema-contract";
 
@@ -53,5 +55,39 @@ describe("dataset schema contracts", () => {
         ]);
         expect(readDatasetSchemaColumns({ columns: ["employee_id", 42] })).toBeNull();
         expect(readDatasetSchemaColumns(null)).toBeNull();
+    });
+
+    it("infers numeric and string columns from the first successful import", () => {
+        const rows = [
+            { salary: "$72,000", department: "Sales" },
+            { salary: "$81,500", department: "Engineering" },
+            { salary: "", department: "Sales" },
+        ];
+        expect(inferDatasetColumnTypes(rows, ["salary", "department"], ["salary", "department"])).toEqual({
+            salary: "number",
+            department: "string",
+        });
+    });
+
+    it("rejects type drift in a previously numeric column", () => {
+        expect(() =>
+            validateDatasetColumnTypes(
+                { salary: "number" },
+                [{ salary: "not disclosed" }],
+                ["salary"],
+                ["salary"],
+            ),
+        ).toThrow("must contain number values");
+    });
+
+    it("allows empty values in typed columns without treating them as type drift", () => {
+        expect(() =>
+            validateDatasetColumnTypes(
+                { salary: "number" },
+                [{ salary: "75000" }, { salary: "" }, { salary: null }],
+                ["salary"],
+                ["salary"],
+            ),
+        ).not.toThrow();
     });
 });

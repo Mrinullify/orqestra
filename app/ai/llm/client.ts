@@ -15,14 +15,38 @@ const config = llmConfigSchema.parse({
 });
 
 const MAX_COMPLETION_TOKENS = 1024;
-const MAX_RATE_LIMIT_RETRIES = 2;
-const MAX_RETRY_DELAY_MS = 30_000;
+const MAX_RATE_LIMIT_RETRIES = 1;
+const MAX_NETWORK_RETRIES = 2;
+const BASE_NETWORK_RETRY_DELAY_MS = 750;
+const MAX_RETRY_DELAY_MS = 2_000;
 
 export class LlmRateLimitError extends Error {
     constructor(public readonly retryAfterSeconds?: number) {
         super("The AI service is temporarily rate limited. Please try again shortly.");
         this.name = "LlmRateLimitError";
     }
+}
+
+export class LlmConnectionError extends Error {
+    constructor() {
+        super("The AI service could not be reached. Please try again shortly.");
+        this.name = "LlmConnectionError";
+    }
+}
+
+function isTransientNetworkError(error: unknown): boolean {
+    if (!(error instanceof TypeError)) return false;
+
+    const cause = (error as TypeError & { cause?: { code?: string } }).cause;
+    return [
+        "UND_ERR_SOCKET",
+        "UND_ERR_CONNECT_TIMEOUT",
+        "UND_ERR_HEADERS_TIMEOUT",
+        "ECONNRESET",
+        "ETIMEDOUT",
+        "EAI_AGAIN",
+        "ECONNREFUSED",
+    ].includes(cause?.code ?? "");
 }
 
 export type LlmTool = {
@@ -85,23 +109,44 @@ async function callChatCompletions(
     messages: LlmMessage[],
     tools: LlmTool[] = [],
 ): Promise<LlmResponse> {
+    let networkRetries = 0;
+
     for (let attempt = 0; ; attempt += 1) {
-        const response = await fetch(`${config.GROQ_API_URL}/chat/completions`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${config.GROQ_API_KEY}`,
-            },
-            body: JSON.stringify({
-                model: config.GROQ_MODEL,
-                messages,
-                tools,
-                tool_choice: tools.length > 0 ? "auto" : undefined,
-                temperature: 0,
-                max_completion_tokens: MAX_COMPLETION_TOKENS,
-            }),
-            cache: "no-store",
-        });
+        let response: Response;
+
+        try {
+            response = await fetch(`${config.GROQ_API_URL}/chat/completions`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${config.GROQ_API_KEY}`,
+                },
+                body: JSON.stringify({
+                    model: config.GROQ_MODEL,
+                    messages,
+                    tools,
+                    tool_choice: tools.length > 0 ? "auto" : undefined,
+                    temperature: 0,
+                    max_completion_tokens: MAX_COMPLETION_TOKENS,
+                }),
+                cache: "no-store",
+            });
+        } catch (error) {
+            if (!isTransientNetworkError(error)) throw error;
+
+            if (networkRetries >= MAX_NETWORK_RETRIES) {
+                console.error("Groq network request failed after retries.", error);
+                throw new LlmConnectionError();
+            }
+
+            const delayMs = BASE_NETWORK_RETRY_DELAY_MS * 2 ** networkRetries;
+            networkRetries += 1;
+            console.warn(
+                `Groq network connection failed; retrying in ${delayMs}ms (attempt ${networkRetries}/${MAX_NETWORK_RETRIES}).`,
+            );
+            await sleep(delayMs);
+            continue;
+        }
 
         if (!response.ok) {
             const text = await response.text();
@@ -113,6 +158,9 @@ async function callChatCompletions(
                     ? 1000 * 2 ** attempt
                     : Math.ceil(retryAfterSeconds * 1000);
 
+                // Do not keep a user's chat request waiting for long provider cooldowns.
+                // Retry once only when the suggested wait is short; otherwise return 429
+                // immediately so the UI can explain the rate limit and the user can retry.
                 if (canRetry && retryDelayMs <= MAX_RETRY_DELAY_MS) {
                     console.warn(
                         `Groq rate limit reached; retrying in ${retryDelayMs}ms (attempt ${attempt + 1}/${MAX_RATE_LIMIT_RETRIES}).`,

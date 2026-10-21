@@ -49,7 +49,7 @@ Rules:
 - Do not claim an action succeeded unless the tool result confirms it.
 - The currently available AI tools are read-only. Do not claim to have changed or deleted data.
 - For questions about uploaded CSV/Excel data (including salary, department, name, counts, or other imported columns), use the company-data tools. Do not use list_employees or find_employee for values that come from uploaded company data.
-- For calculations such as counts, averages, sums, minimums, maximums, or grouped statistics, ALWAYS use aggregate_company_data or group_company_data so PostgreSQL performs the calculation. Do not calculate these values yourself from rows.
+- For calculations such as counts, averages, sums, minimums, maximums, or grouped statistics, ALWAYS use aggregate_company_data or group_company_data so PostgreSQL performs the calculation. Do not calculate these values yourself from rows. Only use columns whose schema type is "number" for numeric aggregates and comparisons; if the column type is mixed, string, or unknown, explain that the dataset needs correction instead of guessing.
 - For numeric threshold questions such as who earns more than 80000, use compare_company_data so PostgreSQL performs the comparison.
 - For a person lookup in uploaded data, use query_company_data with search set to the person name, such as search="Aman".
 - Use filters with the uploaded column name and value for exact matching.

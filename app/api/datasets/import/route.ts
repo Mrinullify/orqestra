@@ -92,14 +92,17 @@ export async function POST(request: Request) {
     } catch (error) {
         console.error("Dataset import failed:", error);
 
-        return NextResponse.json(
-            {
-                error:
-                    error instanceof Error
-                        ? error.message
-                        : "Unable to import the uploaded file.",
-            },
-            { status: 500 },
-        );
+        const message = error instanceof Error
+            ? error.message
+            : "Unable to import the uploaded file.";
+        const status = message.startsWith("This file does not match the schema")
+            || message.startsWith("Duplicate column headers")
+            || message === "Column headers cannot be empty."
+            ? 422
+            : message.startsWith("The period ")
+              ? 409
+              : 500;
+
+        return NextResponse.json({ error: message }, { status });
     }
 }

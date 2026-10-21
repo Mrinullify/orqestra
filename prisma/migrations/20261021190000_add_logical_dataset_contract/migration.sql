@@ -14,3 +14,5 @@ ADD COLUMN "mimeType" TEXT,
 ADD COLUMN "sizeBytes" BIGINT,
 ADD COLUMN "reportingPeriod" TEXT,
 ADD COLUMN "isActive" BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE "DataImport"
+ADD COLUMN "replaceExistingPeriod" BOOLEAN NOT NULL DEFAULT false;

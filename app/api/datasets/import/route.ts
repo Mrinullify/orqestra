@@ -98,6 +98,10 @@ export async function POST(request: Request) {
         const status = message.startsWith("This file does not match the schema")
             || message.startsWith("This file contains values that do not match")
             || message.startsWith("Duplicate column headers")
+            || message.startsWith("CSV parsing failed")
+            || message.startsWith("Row ")
+            || message.startsWith("The file must contain")
+            || message.startsWith("The Excel workbook")
             || message === "Column headers cannot be empty."
             ? 422
             : message.startsWith("The period ")

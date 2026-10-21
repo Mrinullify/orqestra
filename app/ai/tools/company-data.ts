@@ -27,7 +27,7 @@ export const queryCompanyDataTool: ToolDefinition<typeof queryCompanyDataSchema>
     description:
         "Read rows from one named dataset in the authenticated user's organization. Always choose dataSourceId from trusted dataset context or list_data_sources; never omit it or mix rows from different datasets. Use search for a lookup, filters for exact column values, and reportingPeriod to limit results to a specific import period. Never access another organization's data.",
     inputSchema: queryCompanyDataSchema,
-    allowedRoles: ["HR", "EMPLOYEE"],
+    allowedRoles: ["HR"],
     execute: async (input: QueryCompanyDataInput, context) =>
         queryCompanyData(context, input),
 };

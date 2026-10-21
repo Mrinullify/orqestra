@@ -16,6 +16,7 @@ export default function DataUploadClient() {
     const [file, setFile] = useState<File | null>(null);
     const [datasetName, setDatasetName] = useState("");
     const [reportingPeriod, setReportingPeriod] = useState("");
+    const [replaceExistingPeriod, setReplaceExistingPeriod] = useState(false);
     const [status, setStatus] = useState("");
     const [error, setError] = useState("");
     const [result, setResult] = useState<ImportResult | null>(null);
@@ -66,6 +67,7 @@ export default function DataUploadClient() {
                     fileName: file.name,
                     datasetName: datasetName.trim(),
                     reportingPeriod: reportingPeriod.trim() || undefined,
+                    replaceExistingPeriod,
                     sizeBytes: file.size,
                     contentType: file.type || "application/octet-stream",
                 }),
@@ -179,6 +181,22 @@ export default function DataUploadClient() {
                         </span>
                     </label>
                 </div>
+
+                <label className="mt-4 flex items-start gap-3 rounded-xl border border-zinc-200 p-4 text-sm text-zinc-700">
+                    <input
+                        type="checkbox"
+                        checked={replaceExistingPeriod}
+                        onChange={(event) => setReplaceExistingPeriod(event.target.checked)}
+                        disabled={loading || !reportingPeriod.trim()}
+                        className="mt-0.5"
+                    />
+                    <span>
+                        <span className="block font-medium">Replace existing data for this period</span>
+                        <span className="mt-1 block text-xs text-zinc-500">
+                            Use this when uploading a corrected file for a period already imported. The previous version stays stored but is excluded from active analytics. A reporting period is required.
+                        </span>
+                    </span>
+                </label>
 
                 <div className="mt-5 rounded-xl border-2 border-dashed border-zinc-200 p-8 text-center">
                     <input

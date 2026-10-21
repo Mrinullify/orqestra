@@ -7,7 +7,7 @@ import { prisma } from "@/app/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
 import { getObjectBytes } from "@/app/lib/storage";
 import type { ServiceContext } from "@/app/lib/ai/types";
-import { normalizeHeaders, readDatasetSchemaColumns, validateDatasetSchema } from "@/app/services/data/schema-contract";
+import { inferDatasetColumnTypes, normalizeHeaders, readDatasetSchemaColumns, readDatasetSchemaTypes, validateDatasetColumnTypes, validateDatasetSchema } from "@/app/services/data/schema-contract";
 
 const MAX_IMPORT_ROWS = 250_000;
 const BATCH_SIZE = 1_000;
@@ -139,10 +139,16 @@ export async function processDataImport(
         const normalizedHeaders = normalizeHeaders(parsed.headers);
         const storedSchemaColumns = readDatasetSchemaColumns(dataImport.dataSource.schema);
         let expectedColumns = storedSchemaColumns;
+        let expectedTypes = readDatasetSchemaTypes(dataImport.dataSource.schema);
+        const inferredTypes = inferDatasetColumnTypes(
+            parsed.rows,
+            parsed.headers,
+            normalizedHeaders,
+        );
 
-        // Adopt the column contract from the latest successful legacy import
-        // when this dataset predates the schema-contract migration.
-        if (!expectedColumns) {
+        // Adopt column metadata from the latest successful legacy import when
+        // this dataset predates the schema-contract migration.
+        if (!expectedColumns || !expectedTypes) {
             const previousImport = await prisma.dataImport.findFirst({
                 where: {
                     dataSourceId: dataImport.dataSourceId,
@@ -152,14 +158,25 @@ export async function processDataImport(
                 orderBy: { createdAt: "desc" },
                 select: {
                     columnMappings: {
-                        select: { normalizedName: true },
+                        select: { normalizedName: true, detectedType: true },
                     },
                 },
             });
-            const previousColumns = previousImport?.columnMappings.map(
-                (mapping) => mapping.normalizedName,
-            );
-            if (previousColumns?.length) expectedColumns = previousColumns;
+            const mappings = previousImport?.columnMappings ?? [];
+            const previousColumns = mappings.map((mapping) => mapping.normalizedName);
+            if (!expectedColumns && previousColumns.length) expectedColumns = previousColumns;
+
+            if (!expectedTypes) {
+                const knownTypes = new Set(["number", "date", "boolean", "string", "mixed", "unknown"]);
+                const previousTypes = Object.fromEntries(
+                    mappings
+                        .filter((mapping) => mapping.detectedType && knownTypes.has(mapping.detectedType))
+                        .map((mapping) => [mapping.normalizedName, mapping.detectedType]),
+                );
+                if (Object.keys(previousTypes).length) {
+                    expectedTypes = previousTypes as ReturnType<typeof readDatasetSchemaTypes>;
+                }
+            }
         }
 
         if (expectedColumns) {
@@ -168,6 +185,12 @@ export async function processDataImport(
                 [...normalizedHeaders].sort(),
             );
         }
+        validateDatasetColumnTypes(
+            expectedTypes,
+            parsed.rows,
+            parsed.headers,
+            normalizedHeaders,
+        );
 
         if (dataImport.reportingPeriod && !dataImport.replaceExistingPeriod) {
             const duplicatePeriod = await prisma.dataImport.findFirst({
@@ -201,8 +224,8 @@ export async function processDataImport(
                     dataImportId: dataImport.id,
                     originalName: header,
                     normalizedName: normalizedHeaders[index],
-                    detectedType: "unknown",
-                    confidence: 0,
+                    detectedType: inferredTypes[normalizedHeaders[index]],
+                    confidence: inferredTypes[normalizedHeaders[index]] === "unknown" ? 0 : 1,
                     isApproved: true,
                 })),
             });
@@ -240,6 +263,7 @@ export async function processDataImport(
                         schema: {
                             version: 1,
                             columns: contractColumns,
+                            types: expectedTypes ?? inferredTypes,
                         } as Prisma.InputJsonValue,
                     },
                 });

@@ -125,6 +125,13 @@ export async function POST(request: Request) {
 
         const existingSource = matchingSources[0] ?? null;
 
+        if (existingSource && !reportingPeriod) {
+            return NextResponse.json(
+                { error: "A reporting period or snapshot label is required when adding another file to an existing dataset, to prevent accidental double-counting." },
+                { status: 400 },
+            );
+        }
+
         if (existingSource && reportingPeriod) {
             const existingPeriod = await prisma.dataImport.findFirst({
                 where: {

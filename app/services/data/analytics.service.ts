@@ -14,7 +14,7 @@ function numericExpression(column: string) {
     const cleaned = Prisma.sql`
         regexp_replace(
             BTRIM(jsonb_extract_path_text("data", ${column})),
-            '[$£€₹ ]',
+            '[[:space:]$£€₹]',
             '',
             'g'
         )

@@ -96,6 +96,7 @@ export async function POST(request: Request) {
             ? error.message
             : "Unable to import the uploaded file.";
         const status = message.startsWith("This file does not match the schema")
+            || message.startsWith("This file contains values that do not match")
             || message.startsWith("Duplicate column headers")
             || message === "Column headers cannot be empty."
             ? 422

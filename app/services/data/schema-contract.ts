@@ -12,14 +12,31 @@ function isBooleanValue(value: unknown): boolean {
     return /^(true|false|yes|no|y|n)$/i.test(String(value ?? "").trim());
 }
 
+function isValidDateParts(year: number, month: number, day: number): boolean {
+    if (month < 1 || month > 12 || day < 1 || day > 31) return false;
+    const date = new Date(Date.UTC(year, month - 1, day));
+    return date.getUTCFullYear() === year
+        && date.getUTCMonth() === month - 1
+        && date.getUTCDate() === day;
+}
+
 function isDateValue(value: unknown): boolean {
     const text = String(value ?? "").trim();
     if (!text || isNumericValue(text)) return false;
-    if (!/^\d{4}[-/]\d{1,2}[-/]\d{1,2}$/.test(text)
-        && !/^\d{1,2}[-/]\d{1,2}[-/]\d{2,4}$/.test(text)) return false;
-    return Number.isFinite(Date.parse(text));
-}
 
+    const iso = text.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:$|T)/);
+    if (iso) {
+        return isValidDateParts(Number(iso[1]), Number(iso[2]), Number(iso[3]));
+    }
+
+    const dayFirstOrMonthFirst = text.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+    if (!dayFirstOrMonthFirst) return false;
+
+    const first = Number(dayFirstOrMonthFirst[1]);
+    const second = Number(dayFirstOrMonthFirst[2]);
+    const year = Number(dayFirstOrMonthFirst[3]);
+    return isValidDateParts(year, second, first) || isValidDateParts(year, first, second);
+}
 function classifyValue(value: unknown): DatasetColumnType {
     if (value === null || value === undefined || String(value).trim() === "") return "unknown";
     if (isNumericValue(value)) return "number";

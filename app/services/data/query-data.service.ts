@@ -3,6 +3,7 @@ import "server-only";
 import { Prisma } from "../../../generated/prisma/client";
 import { prisma } from "@/app/lib/prisma";
 import type { ServiceContext } from "@/app/lib/ai/types";
+import { assertDatasetColumns } from "@/app/services/data/dataset-schema.service";
 
 export interface CompanyDataFilter {
     column: string;
@@ -29,6 +30,12 @@ export async function queryCompanyData(
     if (!dataSource) {
         throw new Error("Data source not found.");
     }
+
+    await assertDatasetColumns(
+        context,
+        input.dataSourceId,
+        (input.filters ?? []).map((filter) => filter.column),
+    );
 
     let where = Prisma.sql`
         "organizationId" = ${context.organizationId}

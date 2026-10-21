@@ -1,5 +1,7 @@
 import "server-only";
 
+import { requireHR } from "@/app/lib/ai/permissions";
+
 import { Prisma } from "../../../generated/prisma/client";
 import { prisma } from "@/app/lib/prisma";
 import type { ServiceContext } from "@/app/lib/ai/types";
@@ -72,7 +74,8 @@ function buildWhere(
 async function assertDataSource(
     context: ServiceContext,
     dataSourceId: string,
-) {
+ ) {
+    requireHR(context);
     const source = await prisma.dataSource.findFirst({
         where: {
             id: dataSourceId,

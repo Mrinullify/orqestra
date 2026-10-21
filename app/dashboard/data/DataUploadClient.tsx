@@ -75,6 +75,7 @@ export default function DataUploadClient() {
 
             const prepareData = (await prepareResponse.json()) as {
                 uploadUrl?: string;
+                uploadContentType?: string;
                 dataImportId?: string;
                 existingDataset?: boolean;
                 hasSchema?: boolean;
@@ -94,7 +95,7 @@ export default function DataUploadClient() {
             const uploadResponse = await fetch(prepareData.uploadUrl, {
                 method: "PUT",
                 headers: {
-                    "Content-Type": file.type || "application/octet-stream",
+                    "Content-Type": prepareData.uploadContentType || file.type || "application/octet-stream",
                 },
                 body: file,
             });

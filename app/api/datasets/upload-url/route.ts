@@ -140,7 +140,7 @@ export async function POST(request: Request) {
 
         const existingSource = matchingSources[0] ?? null;
 
-remove redundant period validation        if (existingSource && reportingPeriod) {
+        if (existingSource && reportingPeriod) {
             const existingPeriod = await prisma.dataImport.findFirst({
                 where: {
                     dataSourceId: existingSource.id,

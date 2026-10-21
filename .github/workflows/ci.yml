@@ -46,4 +46,6 @@ jobs:
       - name: Build production application
         run: npm run build
         env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/orqestra
+          DIRECT_URL: postgresql://postgres:postgres@localhost:5432/orqestra
           GROQ_API_KEY: ci-placeholder-not-a-real-secret

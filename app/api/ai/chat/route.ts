@@ -8,6 +8,7 @@ import { toolRegistry, executeTool } from "@/app/ai/tools";
 import { getToolContext } from "@/app/lib/ai/context";
 import { ApprovalRequiredError } from "@/app/lib/ai/approvals";
 import { getCopilotDataContext } from "@/app/services/data/data-sources.service";
+import type { ToolContext } from "@/app/lib/ai/types";
 
 const MAX_HISTORY_MESSAGES = 8;
 const MAX_HISTORY_MESSAGE_CHARS = 2000;
@@ -76,9 +77,9 @@ function schemaToJsonSchema(schema: z.ZodType): Record<string, unknown> {
     return zAny.toJSONSchema();
 }
 
-function buildToolDefinitions(): LlmTool[] {
+function buildToolDefinitions(context: ToolContext): LlmTool[] {
     return Array.from(toolRegistry.values())
-        .filter((tool) => AI_READ_ONLY_TOOLS.has(tool.name))
+        .filter((tool) => AI_READ_ONLY_TOOLS.has(tool.name) && tool.allowedRoles.includes(context.role))
         .map((tool) => ({
             type: "function",
             function: {
@@ -166,7 +167,9 @@ export async function POST(request: Request) {
         const datasetContext = await getCopilotDataContext(context);
         const datasetContextText = datasetContext.length
             ? JSON.stringify(datasetContext)
-            : "No uploaded datasets are currently available for this organization.";
+            : context.role === "HR"
+                ? "No uploaded datasets are currently available for this organization."
+                : "Uploaded company datasets are restricted to HR in this version.";
 
         const messages: LlmMessage[] = [
             {
@@ -177,7 +180,7 @@ export async function POST(request: Request) {
             { role: "user", content: parsed.data.message },
         ];
 
-        const tools = buildToolDefinitions();
+        const tools = buildToolDefinitions(context);
         const toolEvidence: Array<{ tool: string; result: string }> = [];
 
         for (let iteration = 0; iteration < MAX_TOOL_ROUNDS; iteration += 1) {

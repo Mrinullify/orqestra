@@ -95,3 +95,56 @@ export async function inspectDataSource(
         columns: latestImport?.columnMappings ?? [],
     };
 }
+
+/**
+ * Fetch compact, organization-scoped dataset metadata once per Copilot request.
+ * Supplying this context to the model avoids separate list_data_sources and
+ * inspect_data_source LLM rounds before it can answer a data question.
+ */
+export async function getCopilotDataContext(context: ServiceContext) {
+    const sources = await prisma.dataSource.findMany({
+        where: { organizationId: context.organizationId },
+        orderBy: { createdAt: "desc" },
+        take: 8,
+        select: {
+            id: true,
+            name: true,
+            originalName: true,
+            type: true,
+            imports: {
+                orderBy: { createdAt: "desc" },
+                take: 1,
+                select: {
+                    status: true,
+                    totalRows: true,
+                    acceptedRows: true,
+                    rejectedRows: true,
+                    columnMappings: {
+                        orderBy: { originalName: "asc" },
+                        take: 60,
+                        select: {
+                            originalName: true,
+                            normalizedName: true,
+                            detectedType: true,
+                        },
+                    },
+                },
+            },
+        },
+    });
+
+    return sources.map((source) => {
+        const latestImport = source.imports[0] ?? null;
+        return {
+            id: source.id,
+            name: source.name,
+            originalName: source.originalName,
+            type: source.type,
+            importStatus: latestImport?.status ?? null,
+            totalRows: latestImport?.totalRows ?? null,
+            acceptedRows: latestImport?.acceptedRows ?? null,
+            rejectedRows: latestImport?.rejectedRows ?? null,
+            columns: latestImport?.columnMappings ?? [],
+        };
+    });
+}

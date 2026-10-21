@@ -46,15 +46,23 @@ export async function POST(request: Request) {
 
         const body = (await request.json()) as {
             fileName?: unknown;
+            datasetName?: unknown;
+            reportingPeriod?: unknown;
             sizeBytes?: unknown;
             contentType?: unknown;
         };
 
         const fileName =
             typeof body.fileName === "string" ? body.fileName.trim() : "";
+        const datasetName =
+            typeof body.datasetName === "string" ? body.datasetName.trim() : "";
+        const reportingPeriod =
+            typeof body.reportingPeriod === "string" && body.reportingPeriod.trim()
+                ? body.reportingPeriod.trim()
+                : null;
         const sizeBytes =
             typeof body.sizeBytes === "number" ? body.sizeBytes : 0;
-        const contentType =
+        const requestedContentType =
             typeof body.contentType === "string" && body.contentType
                 ? body.contentType
                 : "application/octet-stream";
@@ -69,6 +77,20 @@ export async function POST(request: Request) {
             );
         }
 
+        if (datasetName.length < 2 || datasetName.length > 80) {
+            return NextResponse.json(
+                { error: "Dataset name must contain between 2 and 80 characters." },
+                { status: 400 },
+            );
+        }
+
+        if (reportingPeriod && reportingPeriod.length > 80) {
+            return NextResponse.json(
+                { error: "Reporting period must be 80 characters or fewer." },
+                { status: 400 },
+            );
+        }
+
         if (!Number.isSafeInteger(sizeBytes) || sizeBytes <= 0 || sizeBytes > MAX_FILE_SIZE) {
             return NextResponse.json(
                 { error: "The file must be non-empty and no larger than 100 MB." },
@@ -76,45 +98,72 @@ export async function POST(request: Request) {
             );
         }
 
-        const dataSourceId = crypto.randomUUID();
-        const storageKey =
-            `organizations/${session.organizationId}/data-sources/${dataSourceId}/${safeFileName(fileName)}`;
-
-        const dataSource = await prisma.dataSource.create({
-            data: {
-                id: dataSourceId,
-                name: fileName,
-                originalName: fileName,
-                type: fileConfig.type,
-                mimeType: contentType || fileConfig.mimeType,
-                sizeBytes,
-                storageKey,
+        const existingSource = await prisma.dataSource.findFirst({
+            where: {
                 organizationId: session.organizationId,
-                imports: {
-                    create: {},
-                },
+                name: { equals: datasetName, mode: "insensitive" },
             },
-            include: {
-                imports: {
-                    orderBy: { createdAt: "desc" },
-                    take: 1,
-                },
-            },
+            select: { id: true, schema: true },
         });
 
-        const dataImport = dataSource.imports[0];
-        if (!dataImport) {
-            throw new Error("Unable to create data import.");
+        const dataSourceId = existingSource?.id ?? crypto.randomUUID();
+        const dataImportId = crypto.randomUUID();
+        const storageKey =
+            `organizations/${session.organizationId}/data-sources/${dataSourceId}/imports/${dataImportId}/${safeFileName(fileName)}`;
+        const mimeType = requestedContentType === "application/octet-stream"
+            ? fileConfig.mimeType
+            : requestedContentType;
+
+        if (existingSource) {
+            await prisma.dataImport.create({
+                data: {
+                    id: dataImportId,
+                    dataSourceId,
+                    originalName: fileName,
+                    storageKey,
+                    fileType: fileConfig.type,
+                    mimeType,
+                    sizeBytes,
+                    reportingPeriod,
+                },
+            });
+        } else {
+            await prisma.dataSource.create({
+                data: {
+                    id: dataSourceId,
+                    name: datasetName,
+                    originalName: fileName,
+                    type: fileConfig.type,
+                    mimeType,
+                    sizeBytes,
+                    storageKey,
+                    organizationId: session.organizationId,
+                    imports: {
+                        create: {
+                            id: dataImportId,
+                            originalName: fileName,
+                            storageKey,
+                            fileType: fileConfig.type,
+                            mimeType,
+                            sizeBytes,
+                            reportingPeriod,
+                        },
+                    },
+                },
+            });
         }
 
         const uploadUrl = await createUploadUrl({
             key: storageKey,
-            contentType,
+            contentType: mimeType,
         });
 
         return NextResponse.json({
-            dataSourceId: dataSource.id,
-            dataImportId: dataImport.id,
+            dataSourceId,
+            dataImportId,
+            datasetName,
+            existingDataset: Boolean(existingSource),
+            hasSchema: Boolean(existingSource?.schema),
             storageKey,
             uploadUrl,
             expiresInSeconds: 600,

@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
-import { resendInvitationAction, revokeInvitationAction, type InviteState } from "@/app/actions/invitations";
+import { resendInvitationAction, revokeInvitationAction } from "@/app/actions/invitations";
+import type { InviteState } from "@/app/lib/validation/invitations";
 import type { InvitationStatus } from "@/generated/prisma/client";
 
 interface Props {

@@ -3,6 +3,12 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/app/lib/prisma";
 
+type OrqestraToken = {
+    id?: string;
+    organizationId?: string;
+    role?: "HR" | "EMPLOYEE";
+};
+
 declare module "next-auth" {
     interface Session {
         user: {
@@ -78,19 +84,25 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
     callbacks: {
         async jwt({ token, user }) {
+            const appToken = token as typeof token & OrqestraToken;
+
             if (user) {
-                token.id = user.id;
-                (token as any).organizationId = user.organizationId;
-                (token as any).role = user.role;
+                appToken.id = user.id;
+                appToken.organizationId = user.organizationId;
+                appToken.role = user.role;
             }
-            return token;
+
+            return appToken;
         },
         async session({ session, token }) {
-            if (token && session.user) {
-                session.user.id = token.id as string;
-                session.user.organizationId = (token as any).organizationId as string;
-                session.user.role = (token as any).role as "HR" | "EMPLOYEE";
+            const appToken = token as typeof token & OrqestraToken;
+
+            if (session.user) {
+                session.user.id = appToken.id as string;
+                session.user.organizationId = appToken.organizationId as string;
+                session.user.role = appToken.role as "HR" | "EMPLOYEE";
             }
+
             return session;
         },
     },

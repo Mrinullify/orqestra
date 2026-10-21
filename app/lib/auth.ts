@@ -62,3 +62,36 @@ export async function requireHRRole(): Promise<AuthenticatedUserSession> {
     }
     return userSession;
 }
+
+
+export async function getVerifiedMcpAuthSession(): Promise<AuthenticatedUserSession> {
+    const session = await auth();
+
+    if (!session?.user?.id) {
+        throw new Error("MCP authentication required.");
+    }
+
+    const dbUser = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: {
+            id: true,
+            email: true,
+            name: true,
+            isActive: true,
+            organizationId: true,
+            role: true,
+        },
+    });
+
+    if (!dbUser || !dbUser.isActive) {
+        throw new Error("MCP authentication failed.");
+    }
+
+    return {
+        userId: dbUser.id,
+        organizationId: dbUser.organizationId,
+        role: dbUser.role,
+        email: dbUser.email,
+        name: dbUser.name,
+    };
+}

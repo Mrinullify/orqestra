@@ -262,6 +262,7 @@ export type DataImportWhereInput = {
   createdAt?: Prisma.DateTimeFilter<"DataImport"> | Date | string
   dataSource?: Prisma.XOR<Prisma.DataSourceScalarRelationFilter, Prisma.DataSourceWhereInput>
   columnMappings?: Prisma.ColumnMappingListRelationFilter
+  records?: Prisma.DataRecordListRelationFilter
 }
 
 export type DataImportOrderByWithRelationInput = {
@@ -277,6 +278,7 @@ export type DataImportOrderByWithRelationInput = {
   createdAt?: Prisma.SortOrder
   dataSource?: Prisma.DataSourceOrderByWithRelationInput
   columnMappings?: Prisma.ColumnMappingOrderByRelationAggregateInput
+  records?: Prisma.DataRecordOrderByRelationAggregateInput
 }
 
 export type DataImportWhereUniqueInput = Prisma.AtLeast<{
@@ -295,6 +297,7 @@ export type DataImportWhereUniqueInput = Prisma.AtLeast<{
   createdAt?: Prisma.DateTimeFilter<"DataImport"> | Date | string
   dataSource?: Prisma.XOR<Prisma.DataSourceScalarRelationFilter, Prisma.DataSourceWhereInput>
   columnMappings?: Prisma.ColumnMappingListRelationFilter
+  records?: Prisma.DataRecordListRelationFilter
 }, "id">
 
 export type DataImportOrderByWithAggregationInput = {
@@ -343,6 +346,7 @@ export type DataImportCreateInput = {
   createdAt?: Date | string
   dataSource: Prisma.DataSourceCreateNestedOneWithoutImportsInput
   columnMappings?: Prisma.ColumnMappingCreateNestedManyWithoutDataImportInput
+  records?: Prisma.DataRecordCreateNestedManyWithoutDataImportInput
 }
 
 export type DataImportUncheckedCreateInput = {
@@ -357,6 +361,7 @@ export type DataImportUncheckedCreateInput = {
   completedAt?: Date | string | null
   createdAt?: Date | string
   columnMappings?: Prisma.ColumnMappingUncheckedCreateNestedManyWithoutDataImportInput
+  records?: Prisma.DataRecordUncheckedCreateNestedManyWithoutDataImportInput
 }
 
 export type DataImportUpdateInput = {
@@ -371,6 +376,7 @@ export type DataImportUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   dataSource?: Prisma.DataSourceUpdateOneRequiredWithoutImportsNestedInput
   columnMappings?: Prisma.ColumnMappingUpdateManyWithoutDataImportNestedInput
+  records?: Prisma.DataRecordUpdateManyWithoutDataImportNestedInput
 }
 
 export type DataImportUncheckedUpdateInput = {
@@ -385,6 +391,7 @@ export type DataImportUncheckedUpdateInput = {
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   columnMappings?: Prisma.ColumnMappingUncheckedUpdateManyWithoutDataImportNestedInput
+  records?: Prisma.DataRecordUncheckedUpdateManyWithoutDataImportNestedInput
 }
 
 export type DataImportCreateManyInput = {
@@ -565,6 +572,20 @@ export type DataImportUpdateOneRequiredWithoutColumnMappingsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.DataImportUpdateToOneWithWhereWithoutColumnMappingsInput, Prisma.DataImportUpdateWithoutColumnMappingsInput>, Prisma.DataImportUncheckedUpdateWithoutColumnMappingsInput>
 }
 
+export type DataImportCreateNestedOneWithoutRecordsInput = {
+  create?: Prisma.XOR<Prisma.DataImportCreateWithoutRecordsInput, Prisma.DataImportUncheckedCreateWithoutRecordsInput>
+  connectOrCreate?: Prisma.DataImportCreateOrConnectWithoutRecordsInput
+  connect?: Prisma.DataImportWhereUniqueInput
+}
+
+export type DataImportUpdateOneRequiredWithoutRecordsNestedInput = {
+  create?: Prisma.XOR<Prisma.DataImportCreateWithoutRecordsInput, Prisma.DataImportUncheckedCreateWithoutRecordsInput>
+  connectOrCreate?: Prisma.DataImportCreateOrConnectWithoutRecordsInput
+  upsert?: Prisma.DataImportUpsertWithoutRecordsInput
+  connect?: Prisma.DataImportWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.DataImportUpdateToOneWithWhereWithoutRecordsInput, Prisma.DataImportUpdateWithoutRecordsInput>, Prisma.DataImportUncheckedUpdateWithoutRecordsInput>
+}
+
 export type DataImportCreateWithoutDataSourceInput = {
   id?: string
   status?: $Enums.ImportStatus
@@ -576,6 +597,7 @@ export type DataImportCreateWithoutDataSourceInput = {
   completedAt?: Date | string | null
   createdAt?: Date | string
   columnMappings?: Prisma.ColumnMappingCreateNestedManyWithoutDataImportInput
+  records?: Prisma.DataRecordCreateNestedManyWithoutDataImportInput
 }
 
 export type DataImportUncheckedCreateWithoutDataSourceInput = {
@@ -589,6 +611,7 @@ export type DataImportUncheckedCreateWithoutDataSourceInput = {
   completedAt?: Date | string | null
   createdAt?: Date | string
   columnMappings?: Prisma.ColumnMappingUncheckedCreateNestedManyWithoutDataImportInput
+  records?: Prisma.DataRecordUncheckedCreateNestedManyWithoutDataImportInput
 }
 
 export type DataImportCreateOrConnectWithoutDataSourceInput = {
@@ -644,6 +667,7 @@ export type DataImportCreateWithoutColumnMappingsInput = {
   completedAt?: Date | string | null
   createdAt?: Date | string
   dataSource: Prisma.DataSourceCreateNestedOneWithoutImportsInput
+  records?: Prisma.DataRecordCreateNestedManyWithoutDataImportInput
 }
 
 export type DataImportUncheckedCreateWithoutColumnMappingsInput = {
@@ -657,6 +681,7 @@ export type DataImportUncheckedCreateWithoutColumnMappingsInput = {
   startedAt?: Date | string | null
   completedAt?: Date | string | null
   createdAt?: Date | string
+  records?: Prisma.DataRecordUncheckedCreateNestedManyWithoutDataImportInput
 }
 
 export type DataImportCreateOrConnectWithoutColumnMappingsInput = {
@@ -686,6 +711,7 @@ export type DataImportUpdateWithoutColumnMappingsInput = {
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   dataSource?: Prisma.DataSourceUpdateOneRequiredWithoutImportsNestedInput
+  records?: Prisma.DataRecordUpdateManyWithoutDataImportNestedInput
 }
 
 export type DataImportUncheckedUpdateWithoutColumnMappingsInput = {
@@ -699,6 +725,79 @@ export type DataImportUncheckedUpdateWithoutColumnMappingsInput = {
   startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  records?: Prisma.DataRecordUncheckedUpdateManyWithoutDataImportNestedInput
+}
+
+export type DataImportCreateWithoutRecordsInput = {
+  id?: string
+  status?: $Enums.ImportStatus
+  totalRows?: number | null
+  acceptedRows?: number
+  rejectedRows?: number
+  errorDetails?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  startedAt?: Date | string | null
+  completedAt?: Date | string | null
+  createdAt?: Date | string
+  dataSource: Prisma.DataSourceCreateNestedOneWithoutImportsInput
+  columnMappings?: Prisma.ColumnMappingCreateNestedManyWithoutDataImportInput
+}
+
+export type DataImportUncheckedCreateWithoutRecordsInput = {
+  id?: string
+  dataSourceId: string
+  status?: $Enums.ImportStatus
+  totalRows?: number | null
+  acceptedRows?: number
+  rejectedRows?: number
+  errorDetails?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  startedAt?: Date | string | null
+  completedAt?: Date | string | null
+  createdAt?: Date | string
+  columnMappings?: Prisma.ColumnMappingUncheckedCreateNestedManyWithoutDataImportInput
+}
+
+export type DataImportCreateOrConnectWithoutRecordsInput = {
+  where: Prisma.DataImportWhereUniqueInput
+  create: Prisma.XOR<Prisma.DataImportCreateWithoutRecordsInput, Prisma.DataImportUncheckedCreateWithoutRecordsInput>
+}
+
+export type DataImportUpsertWithoutRecordsInput = {
+  update: Prisma.XOR<Prisma.DataImportUpdateWithoutRecordsInput, Prisma.DataImportUncheckedUpdateWithoutRecordsInput>
+  create: Prisma.XOR<Prisma.DataImportCreateWithoutRecordsInput, Prisma.DataImportUncheckedCreateWithoutRecordsInput>
+  where?: Prisma.DataImportWhereInput
+}
+
+export type DataImportUpdateToOneWithWhereWithoutRecordsInput = {
+  where?: Prisma.DataImportWhereInput
+  data: Prisma.XOR<Prisma.DataImportUpdateWithoutRecordsInput, Prisma.DataImportUncheckedUpdateWithoutRecordsInput>
+}
+
+export type DataImportUpdateWithoutRecordsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumImportStatusFieldUpdateOperationsInput | $Enums.ImportStatus
+  totalRows?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  acceptedRows?: Prisma.IntFieldUpdateOperationsInput | number
+  rejectedRows?: Prisma.IntFieldUpdateOperationsInput | number
+  errorDetails?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  dataSource?: Prisma.DataSourceUpdateOneRequiredWithoutImportsNestedInput
+  columnMappings?: Prisma.ColumnMappingUpdateManyWithoutDataImportNestedInput
+}
+
+export type DataImportUncheckedUpdateWithoutRecordsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  dataSourceId?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumImportStatusFieldUpdateOperationsInput | $Enums.ImportStatus
+  totalRows?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  acceptedRows?: Prisma.IntFieldUpdateOperationsInput | number
+  rejectedRows?: Prisma.IntFieldUpdateOperationsInput | number
+  errorDetails?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  columnMappings?: Prisma.ColumnMappingUncheckedUpdateManyWithoutDataImportNestedInput
 }
 
 export type DataImportCreateManyDataSourceInput = {
@@ -724,6 +823,7 @@ export type DataImportUpdateWithoutDataSourceInput = {
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   columnMappings?: Prisma.ColumnMappingUpdateManyWithoutDataImportNestedInput
+  records?: Prisma.DataRecordUpdateManyWithoutDataImportNestedInput
 }
 
 export type DataImportUncheckedUpdateWithoutDataSourceInput = {
@@ -737,6 +837,7 @@ export type DataImportUncheckedUpdateWithoutDataSourceInput = {
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   columnMappings?: Prisma.ColumnMappingUncheckedUpdateManyWithoutDataImportNestedInput
+  records?: Prisma.DataRecordUncheckedUpdateManyWithoutDataImportNestedInput
 }
 
 export type DataImportUncheckedUpdateManyWithoutDataSourceInput = {
@@ -758,10 +859,12 @@ export type DataImportUncheckedUpdateManyWithoutDataSourceInput = {
 
 export type DataImportCountOutputType = {
   columnMappings: number
+  records: number
 }
 
 export type DataImportCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   columnMappings?: boolean | DataImportCountOutputTypeCountColumnMappingsArgs
+  records?: boolean | DataImportCountOutputTypeCountRecordsArgs
 }
 
 /**
@@ -781,6 +884,13 @@ export type DataImportCountOutputTypeCountColumnMappingsArgs<ExtArgs extends run
   where?: Prisma.ColumnMappingWhereInput
 }
 
+/**
+ * DataImportCountOutputType without action
+ */
+export type DataImportCountOutputTypeCountRecordsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.DataRecordWhereInput
+}
+
 
 export type DataImportSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -795,6 +905,7 @@ export type DataImportSelect<ExtArgs extends runtime.Types.Extensions.InternalAr
   createdAt?: boolean
   dataSource?: boolean | Prisma.DataSourceDefaultArgs<ExtArgs>
   columnMappings?: boolean | Prisma.DataImport$columnMappingsArgs<ExtArgs>
+  records?: boolean | Prisma.DataImport$recordsArgs<ExtArgs>
   _count?: boolean | Prisma.DataImportCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["dataImport"]>
 
@@ -843,6 +954,7 @@ export type DataImportOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs
 export type DataImportInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   dataSource?: boolean | Prisma.DataSourceDefaultArgs<ExtArgs>
   columnMappings?: boolean | Prisma.DataImport$columnMappingsArgs<ExtArgs>
+  records?: boolean | Prisma.DataImport$recordsArgs<ExtArgs>
   _count?: boolean | Prisma.DataImportCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type DataImportIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -857,6 +969,7 @@ export type $DataImportPayload<ExtArgs extends runtime.Types.Extensions.Internal
   objects: {
     dataSource: Prisma.$DataSourcePayload<ExtArgs>
     columnMappings: Prisma.$ColumnMappingPayload<ExtArgs>[]
+    records: Prisma.$DataRecordPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1265,6 +1378,7 @@ export interface Prisma__DataImportClient<T, Null = never, ExtArgs extends runti
   readonly [Symbol.toStringTag]: "PrismaPromise"
   dataSource<T extends Prisma.DataSourceDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.DataSourceDefaultArgs<ExtArgs>>): Prisma.Prisma__DataSourceClient<runtime.Types.Result.GetResult<Prisma.$DataSourcePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   columnMappings<T extends Prisma.DataImport$columnMappingsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.DataImport$columnMappingsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ColumnMappingPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  records<T extends Prisma.DataImport$recordsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.DataImport$recordsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$DataRecordPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1726,6 +1840,30 @@ export type DataImport$columnMappingsArgs<ExtArgs extends runtime.Types.Extensio
   take?: number
   skip?: number
   distinct?: Prisma.ColumnMappingScalarFieldEnum | Prisma.ColumnMappingScalarFieldEnum[]
+}
+
+/**
+ * DataImport.records
+ */
+export type DataImport$recordsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the DataRecord
+   */
+  select?: Prisma.DataRecordSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the DataRecord
+   */
+  omit?: Prisma.DataRecordOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.DataRecordInclude<ExtArgs> | null
+  where?: Prisma.DataRecordWhereInput
+  orderBy?: Prisma.DataRecordOrderByWithRelationInput | Prisma.DataRecordOrderByWithRelationInput[]
+  cursor?: Prisma.DataRecordWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.DataRecordScalarFieldEnum | Prisma.DataRecordScalarFieldEnum[]
 }
 
 /**

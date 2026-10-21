@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireHRRole } from "@/app/lib/auth";
-import { validateEmployeeRowsServer, type EmployeeRow } from "@/app/actions/invitations";
+import { validateEmployeeRowsServer } from "@/app/actions/invitations";
+import type { EmployeeRow } from "@/app/lib/validation/invitations";
 import { checkRateLimit, RATE_LIMITS } from "@/app/lib/rate-limit";
 
 export const runtime = "nodejs";

@@ -404,7 +404,8 @@ export const ModelName = {
   ActionApproval: 'ActionApproval',
   DataSource: 'DataSource',
   DataImport: 'DataImport',
-  ColumnMapping: 'ColumnMapping'
+  ColumnMapping: 'ColumnMapping',
+  DataRecord: 'DataRecord'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -420,7 +421,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "organization" | "user" | "invitation" | "auditLog" | "actionApproval" | "dataSource" | "dataImport" | "columnMapping"
+    modelProps: "organization" | "user" | "invitation" | "auditLog" | "actionApproval" | "dataSource" | "dataImport" | "columnMapping" | "dataRecord"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1016,6 +1017,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    DataRecord: {
+      payload: Prisma.$DataRecordPayload<ExtArgs>
+      fields: Prisma.DataRecordFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.DataRecordFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DataRecordPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.DataRecordFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DataRecordPayload>
+        }
+        findFirst: {
+          args: Prisma.DataRecordFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DataRecordPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.DataRecordFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DataRecordPayload>
+        }
+        findMany: {
+          args: Prisma.DataRecordFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DataRecordPayload>[]
+        }
+        create: {
+          args: Prisma.DataRecordCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DataRecordPayload>
+        }
+        createMany: {
+          args: Prisma.DataRecordCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.DataRecordCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DataRecordPayload>[]
+        }
+        delete: {
+          args: Prisma.DataRecordDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DataRecordPayload>
+        }
+        update: {
+          args: Prisma.DataRecordUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DataRecordPayload>
+        }
+        deleteMany: {
+          args: Prisma.DataRecordDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.DataRecordUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.DataRecordUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DataRecordPayload>[]
+        }
+        upsert: {
+          args: Prisma.DataRecordUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DataRecordPayload>
+        }
+        aggregate: {
+          args: Prisma.DataRecordAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateDataRecord>
+        }
+        groupBy: {
+          args: Prisma.DataRecordGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.DataRecordGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.DataRecordCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.DataRecordCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -1183,6 +1258,19 @@ export const ColumnMappingScalarFieldEnum = {
 export type ColumnMappingScalarFieldEnum = (typeof ColumnMappingScalarFieldEnum)[keyof typeof ColumnMappingScalarFieldEnum]
 
 
+export const DataRecordScalarFieldEnum = {
+  id: 'id',
+  organizationId: 'organizationId',
+  dataSourceId: 'dataSourceId',
+  dataImportId: 'dataImportId',
+  rowNumber: 'rowNumber',
+  data: 'data',
+  createdAt: 'createdAt'
+} as const
+
+export type DataRecordScalarFieldEnum = (typeof DataRecordScalarFieldEnum)[keyof typeof DataRecordScalarFieldEnum]
+
+
 export const SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -1197,6 +1285,13 @@ export const NullableJsonNullValueInput = {
 } as const
 
 export type NullableJsonNullValueInput = (typeof NullableJsonNullValueInput)[keyof typeof NullableJsonNullValueInput]
+
+
+export const JsonNullValueInput = {
+  JsonNull: JsonNull
+} as const
+
+export type JsonNullValueInput = (typeof JsonNullValueInput)[keyof typeof JsonNullValueInput]
 
 
 export const QueryMode = {
@@ -1549,6 +1644,7 @@ export type GlobalOmitConfig = {
   dataSource?: Prisma.DataSourceOmit
   dataImport?: Prisma.DataImportOmit
   columnMapping?: Prisma.ColumnMappingOmit
+  dataRecord?: Prisma.DataRecordOmit
 }
 
 /* Types for Logging */

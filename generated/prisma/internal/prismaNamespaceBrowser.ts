@@ -58,7 +58,8 @@ export const ModelName = {
   ActionApproval: 'ActionApproval',
   DataSource: 'DataSource',
   DataImport: 'DataImport',
-  ColumnMapping: 'ColumnMapping'
+  ColumnMapping: 'ColumnMapping',
+  DataRecord: 'DataRecord'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -205,6 +206,19 @@ export const ColumnMappingScalarFieldEnum = {
 export type ColumnMappingScalarFieldEnum = (typeof ColumnMappingScalarFieldEnum)[keyof typeof ColumnMappingScalarFieldEnum]
 
 
+export const DataRecordScalarFieldEnum = {
+  id: 'id',
+  organizationId: 'organizationId',
+  dataSourceId: 'dataSourceId',
+  dataImportId: 'dataImportId',
+  rowNumber: 'rowNumber',
+  data: 'data',
+  createdAt: 'createdAt'
+} as const
+
+export type DataRecordScalarFieldEnum = (typeof DataRecordScalarFieldEnum)[keyof typeof DataRecordScalarFieldEnum]
+
+
 export const SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -219,6 +233,13 @@ export const NullableJsonNullValueInput = {
 } as const
 
 export type NullableJsonNullValueInput = (typeof NullableJsonNullValueInput)[keyof typeof NullableJsonNullValueInput]
+
+
+export const JsonNullValueInput = {
+  JsonNull: JsonNull
+} as const
+
+export type JsonNullValueInput = (typeof JsonNullValueInput)[keyof typeof JsonNullValueInput]
 
 
 export const QueryMode = {

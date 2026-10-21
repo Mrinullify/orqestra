@@ -58,7 +58,9 @@ export async function POST(request: Request) {
             );
         }
 
-        const object = await headObject(dataImport.dataSource.storageKey);
+        const objectKey = dataImport.storageKey ?? dataImport.dataSource.storageKey;
+        const expectedSize = dataImport.sizeBytes ?? dataImport.dataSource.sizeBytes;
+        const object = await headObject(objectKey);
 
         if (!object.ContentLength || object.ContentLength <= 0) {
             return NextResponse.json(
@@ -67,7 +69,7 @@ export async function POST(request: Request) {
             );
         }
 
-        if (dataImport.dataSource.sizeBytes?.toString() !== object.ContentLength.toString()) {
+        if (expectedSize?.toString() !== object.ContentLength.toString()) {
             return NextResponse.json(
                 { error: "Uploaded file size does not match the expected size." },
                 { status: 400 },

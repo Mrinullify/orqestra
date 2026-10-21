@@ -18,7 +18,15 @@ export async function queryCompanyData(
         limit: number;
     },
 ) {
-    let where = Prisma.sql`"organizationId" = ${context.organizationId}`;
+    let where = Prisma.sql`
+        "organizationId" = ${context.organizationId}
+        AND EXISTS (
+            SELECT 1
+            FROM "DataImport" AS import_record
+            WHERE import_record.id = "DataRecord"."dataImportId"
+              AND import_record.status = 'COMPLETED'
+        )
+    `;
 
     if (input.dataSourceId) {
         where = Prisma.sql`${where} AND "dataSourceId" = ${input.dataSourceId}`;

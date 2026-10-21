@@ -24,12 +24,12 @@ function numericExpression(column: string) {
     // Invalid/non-numeric values become NULL and are excluded from aggregates.
     return Prisma.sql`
         CASE
-            WHEN ${cleaned} ~ '^[+-]?(([0-9]+|[0-9]{1,3}(,[0-9]{3})+)([.][0-9]*)?|[.][0-9]+)
+            WHEN ${cleaned} ~ '^[+-]?(([0-9]+|[0-9]{1,3}(,[0-9]{3})+)([.][0-9]*)?|[.][0-9]+)$'
+            THEN replace(${cleaned}, ',', '')::numeric
             ELSE NULL
         END
     `;
 }
-
 function buildWhere(
     context: ServiceContext,
     dataSourceId: string,

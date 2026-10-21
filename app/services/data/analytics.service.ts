@@ -31,6 +31,12 @@ function buildWhere(
     let where = Prisma.sql`
         "organizationId" = ${context.organizationId}
         AND "dataSourceId" = ${dataSourceId}
+        AND EXISTS (
+            SELECT 1
+            FROM "DataImport" AS import_record
+            WHERE import_record.id = "DataRecord"."dataImportId"
+              AND import_record.status = 'COMPLETED'
+        )
     `;
 
     for (const filter of filters) {

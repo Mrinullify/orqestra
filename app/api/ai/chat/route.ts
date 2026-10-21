@@ -3,10 +3,14 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { generateResponse, type LlmMessage, type LlmTool } from "@/app/ai/llm/client";
+import { generateResponse, LlmRateLimitError, type LlmMessage, type LlmTool } from "@/app/ai/llm/client";
 import { toolRegistry, executeTool } from "@/app/ai/tools";
 import { getToolContext } from "@/app/lib/ai/context";
 import { ApprovalRequiredError } from "@/app/lib/ai/approvals";
+
+const MAX_HISTORY_MESSAGES = 8;
+const MAX_HISTORY_MESSAGE_CHARS = 2000;
+const MAX_TOOL_RESULT_CHARS = 12000;
 
 const requestSchema = z.object({
     message: z.string().trim().min(1).max(4000),
@@ -105,6 +109,18 @@ function safeToolError(error: unknown): string {
     return "Tool execution failed.";
 }
 
+function serializeToolResult(result: unknown): string {
+    const serialized = JSON.stringify({ success: true, result });
+    if (serialized.length <= MAX_TOOL_RESULT_CHARS) return serialized;
+
+    return JSON.stringify({
+        success: true,
+        truncated: true,
+        note: "The tool result was too large and has been shortened. Use narrower filters or a smaller limit.",
+        preview: serialized.slice(0, MAX_TOOL_RESULT_CHARS - 300),
+    });
+}
+
 export async function POST(request: Request) {
     let body: unknown;
 
@@ -129,10 +145,12 @@ export async function POST(request: Request) {
     const context = await getToolContext("AI");
 
     try {
-        const conversation: LlmMessage[] = parsed.data.messages.map((message) => ({
-            role: message.role,
-            content: message.content,
-        }));
+        const conversation: LlmMessage[] = parsed.data.messages
+            .slice(-MAX_HISTORY_MESSAGES)
+            .map((message) => ({
+                role: message.role,
+                content: message.content.slice(-MAX_HISTORY_MESSAGE_CHARS),
+            }));
 
         const messages: LlmMessage[] = [
             { role: "system", content: systemPrompt },
@@ -186,10 +204,7 @@ export async function POST(request: Request) {
                     messages.push({
                         role: "tool",
                         tool_call_id: toolCall.id,
-                        content: JSON.stringify({
-                            success: true,
-                            result,
-                        }),
+                        content: serializeToolResult(result),
                     });
                 } catch (error) {
                     messages.push({
@@ -212,6 +227,22 @@ export async function POST(request: Request) {
             { status: 500 },
         );
     } catch (error) {
+        if (error instanceof LlmRateLimitError) {
+            const retryAfterSeconds = error.retryAfterSeconds;
+            const headers = retryAfterSeconds === undefined
+                ? undefined
+                : { "Retry-After": String(Math.ceil(retryAfterSeconds)) };
+
+            return NextResponse.json(
+                {
+                    error: "The AI service is busy due to a temporary rate limit. Please retry shortly.",
+                    retryAfterSeconds,
+                    requestId: context.requestId,
+                },
+                { status: 429, headers },
+            );
+        }
+
         console.error("AI chat request failed:", error);
 
         return NextResponse.json(

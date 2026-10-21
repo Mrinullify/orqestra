@@ -45,3 +45,5 @@ jobs:
 
       - name: Build production application
         run: npm run build
+        env:
+          GROQ_API_KEY: ci-placeholder-not-a-real-secret

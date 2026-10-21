@@ -258,6 +258,7 @@ export type DataSourceWhereInput = {
   updatedAt?: Prisma.DateTimeFilter<"DataSource"> | Date | string
   organization?: Prisma.XOR<Prisma.OrganizationScalarRelationFilter, Prisma.OrganizationWhereInput>
   imports?: Prisma.DataImportListRelationFilter
+  records?: Prisma.DataRecordListRelationFilter
 }
 
 export type DataSourceOrderByWithRelationInput = {
@@ -273,6 +274,7 @@ export type DataSourceOrderByWithRelationInput = {
   updatedAt?: Prisma.SortOrder
   organization?: Prisma.OrganizationOrderByWithRelationInput
   imports?: Prisma.DataImportOrderByRelationAggregateInput
+  records?: Prisma.DataRecordOrderByRelationAggregateInput
 }
 
 export type DataSourceWhereUniqueInput = Prisma.AtLeast<{
@@ -291,6 +293,7 @@ export type DataSourceWhereUniqueInput = Prisma.AtLeast<{
   updatedAt?: Prisma.DateTimeFilter<"DataSource"> | Date | string
   organization?: Prisma.XOR<Prisma.OrganizationScalarRelationFilter, Prisma.OrganizationWhereInput>
   imports?: Prisma.DataImportListRelationFilter
+  records?: Prisma.DataRecordListRelationFilter
 }, "id">
 
 export type DataSourceOrderByWithAggregationInput = {
@@ -339,6 +342,7 @@ export type DataSourceCreateInput = {
   updatedAt?: Date | string
   organization: Prisma.OrganizationCreateNestedOneWithoutDataSourcesInput
   imports?: Prisma.DataImportCreateNestedManyWithoutDataSourceInput
+  records?: Prisma.DataRecordCreateNestedManyWithoutDataSourceInput
 }
 
 export type DataSourceUncheckedCreateInput = {
@@ -353,6 +357,7 @@ export type DataSourceUncheckedCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   imports?: Prisma.DataImportUncheckedCreateNestedManyWithoutDataSourceInput
+  records?: Prisma.DataRecordUncheckedCreateNestedManyWithoutDataSourceInput
 }
 
 export type DataSourceUpdateInput = {
@@ -367,6 +372,7 @@ export type DataSourceUpdateInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   organization?: Prisma.OrganizationUpdateOneRequiredWithoutDataSourcesNestedInput
   imports?: Prisma.DataImportUpdateManyWithoutDataSourceNestedInput
+  records?: Prisma.DataRecordUpdateManyWithoutDataSourceNestedInput
 }
 
 export type DataSourceUncheckedUpdateInput = {
@@ -381,6 +387,7 @@ export type DataSourceUncheckedUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   imports?: Prisma.DataImportUncheckedUpdateManyWithoutDataSourceNestedInput
+  records?: Prisma.DataRecordUncheckedUpdateManyWithoutDataSourceNestedInput
 }
 
 export type DataSourceCreateManyInput = {
@@ -551,6 +558,20 @@ export type DataSourceUpdateOneRequiredWithoutImportsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.DataSourceUpdateToOneWithWhereWithoutImportsInput, Prisma.DataSourceUpdateWithoutImportsInput>, Prisma.DataSourceUncheckedUpdateWithoutImportsInput>
 }
 
+export type DataSourceCreateNestedOneWithoutRecordsInput = {
+  create?: Prisma.XOR<Prisma.DataSourceCreateWithoutRecordsInput, Prisma.DataSourceUncheckedCreateWithoutRecordsInput>
+  connectOrCreate?: Prisma.DataSourceCreateOrConnectWithoutRecordsInput
+  connect?: Prisma.DataSourceWhereUniqueInput
+}
+
+export type DataSourceUpdateOneRequiredWithoutRecordsNestedInput = {
+  create?: Prisma.XOR<Prisma.DataSourceCreateWithoutRecordsInput, Prisma.DataSourceUncheckedCreateWithoutRecordsInput>
+  connectOrCreate?: Prisma.DataSourceCreateOrConnectWithoutRecordsInput
+  upsert?: Prisma.DataSourceUpsertWithoutRecordsInput
+  connect?: Prisma.DataSourceWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.DataSourceUpdateToOneWithWhereWithoutRecordsInput, Prisma.DataSourceUpdateWithoutRecordsInput>, Prisma.DataSourceUncheckedUpdateWithoutRecordsInput>
+}
+
 export type DataSourceCreateWithoutOrganizationInput = {
   id?: string
   name: string
@@ -562,6 +583,7 @@ export type DataSourceCreateWithoutOrganizationInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   imports?: Prisma.DataImportCreateNestedManyWithoutDataSourceInput
+  records?: Prisma.DataRecordCreateNestedManyWithoutDataSourceInput
 }
 
 export type DataSourceUncheckedCreateWithoutOrganizationInput = {
@@ -575,6 +597,7 @@ export type DataSourceUncheckedCreateWithoutOrganizationInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   imports?: Prisma.DataImportUncheckedCreateNestedManyWithoutDataSourceInput
+  records?: Prisma.DataRecordUncheckedCreateNestedManyWithoutDataSourceInput
 }
 
 export type DataSourceCreateOrConnectWithoutOrganizationInput = {
@@ -630,6 +653,7 @@ export type DataSourceCreateWithoutImportsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   organization: Prisma.OrganizationCreateNestedOneWithoutDataSourcesInput
+  records?: Prisma.DataRecordCreateNestedManyWithoutDataSourceInput
 }
 
 export type DataSourceUncheckedCreateWithoutImportsInput = {
@@ -643,6 +667,7 @@ export type DataSourceUncheckedCreateWithoutImportsInput = {
   organizationId: string
   createdAt?: Date | string
   updatedAt?: Date | string
+  records?: Prisma.DataRecordUncheckedCreateNestedManyWithoutDataSourceInput
 }
 
 export type DataSourceCreateOrConnectWithoutImportsInput = {
@@ -672,6 +697,7 @@ export type DataSourceUpdateWithoutImportsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   organization?: Prisma.OrganizationUpdateOneRequiredWithoutDataSourcesNestedInput
+  records?: Prisma.DataRecordUpdateManyWithoutDataSourceNestedInput
 }
 
 export type DataSourceUncheckedUpdateWithoutImportsInput = {
@@ -685,6 +711,79 @@ export type DataSourceUncheckedUpdateWithoutImportsInput = {
   organizationId?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  records?: Prisma.DataRecordUncheckedUpdateManyWithoutDataSourceNestedInput
+}
+
+export type DataSourceCreateWithoutRecordsInput = {
+  id?: string
+  name: string
+  originalName: string
+  type: $Enums.DataSourceType
+  mimeType?: string | null
+  sizeBytes?: bigint | number | null
+  storageKey: string
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  organization: Prisma.OrganizationCreateNestedOneWithoutDataSourcesInput
+  imports?: Prisma.DataImportCreateNestedManyWithoutDataSourceInput
+}
+
+export type DataSourceUncheckedCreateWithoutRecordsInput = {
+  id?: string
+  name: string
+  originalName: string
+  type: $Enums.DataSourceType
+  mimeType?: string | null
+  sizeBytes?: bigint | number | null
+  storageKey: string
+  organizationId: string
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  imports?: Prisma.DataImportUncheckedCreateNestedManyWithoutDataSourceInput
+}
+
+export type DataSourceCreateOrConnectWithoutRecordsInput = {
+  where: Prisma.DataSourceWhereUniqueInput
+  create: Prisma.XOR<Prisma.DataSourceCreateWithoutRecordsInput, Prisma.DataSourceUncheckedCreateWithoutRecordsInput>
+}
+
+export type DataSourceUpsertWithoutRecordsInput = {
+  update: Prisma.XOR<Prisma.DataSourceUpdateWithoutRecordsInput, Prisma.DataSourceUncheckedUpdateWithoutRecordsInput>
+  create: Prisma.XOR<Prisma.DataSourceCreateWithoutRecordsInput, Prisma.DataSourceUncheckedCreateWithoutRecordsInput>
+  where?: Prisma.DataSourceWhereInput
+}
+
+export type DataSourceUpdateToOneWithWhereWithoutRecordsInput = {
+  where?: Prisma.DataSourceWhereInput
+  data: Prisma.XOR<Prisma.DataSourceUpdateWithoutRecordsInput, Prisma.DataSourceUncheckedUpdateWithoutRecordsInput>
+}
+
+export type DataSourceUpdateWithoutRecordsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  originalName?: Prisma.StringFieldUpdateOperationsInput | string
+  type?: Prisma.EnumDataSourceTypeFieldUpdateOperationsInput | $Enums.DataSourceType
+  mimeType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  storageKey?: Prisma.StringFieldUpdateOperationsInput | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  organization?: Prisma.OrganizationUpdateOneRequiredWithoutDataSourcesNestedInput
+  imports?: Prisma.DataImportUpdateManyWithoutDataSourceNestedInput
+}
+
+export type DataSourceUncheckedUpdateWithoutRecordsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  originalName?: Prisma.StringFieldUpdateOperationsInput | string
+  type?: Prisma.EnumDataSourceTypeFieldUpdateOperationsInput | $Enums.DataSourceType
+  mimeType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  storageKey?: Prisma.StringFieldUpdateOperationsInput | string
+  organizationId?: Prisma.StringFieldUpdateOperationsInput | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  imports?: Prisma.DataImportUncheckedUpdateManyWithoutDataSourceNestedInput
 }
 
 export type DataSourceCreateManyOrganizationInput = {
@@ -710,6 +809,7 @@ export type DataSourceUpdateWithoutOrganizationInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   imports?: Prisma.DataImportUpdateManyWithoutDataSourceNestedInput
+  records?: Prisma.DataRecordUpdateManyWithoutDataSourceNestedInput
 }
 
 export type DataSourceUncheckedUpdateWithoutOrganizationInput = {
@@ -723,6 +823,7 @@ export type DataSourceUncheckedUpdateWithoutOrganizationInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   imports?: Prisma.DataImportUncheckedUpdateManyWithoutDataSourceNestedInput
+  records?: Prisma.DataRecordUncheckedUpdateManyWithoutDataSourceNestedInput
 }
 
 export type DataSourceUncheckedUpdateManyWithoutOrganizationInput = {
@@ -744,10 +845,12 @@ export type DataSourceUncheckedUpdateManyWithoutOrganizationInput = {
 
 export type DataSourceCountOutputType = {
   imports: number
+  records: number
 }
 
 export type DataSourceCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   imports?: boolean | DataSourceCountOutputTypeCountImportsArgs
+  records?: boolean | DataSourceCountOutputTypeCountRecordsArgs
 }
 
 /**
@@ -767,6 +870,13 @@ export type DataSourceCountOutputTypeCountImportsArgs<ExtArgs extends runtime.Ty
   where?: Prisma.DataImportWhereInput
 }
 
+/**
+ * DataSourceCountOutputType without action
+ */
+export type DataSourceCountOutputTypeCountRecordsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.DataRecordWhereInput
+}
+
 
 export type DataSourceSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -781,6 +891,7 @@ export type DataSourceSelect<ExtArgs extends runtime.Types.Extensions.InternalAr
   updatedAt?: boolean
   organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
   imports?: boolean | Prisma.DataSource$importsArgs<ExtArgs>
+  records?: boolean | Prisma.DataSource$recordsArgs<ExtArgs>
   _count?: boolean | Prisma.DataSourceCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["dataSource"]>
 
@@ -829,6 +940,7 @@ export type DataSourceOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs
 export type DataSourceInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   organization?: boolean | Prisma.OrganizationDefaultArgs<ExtArgs>
   imports?: boolean | Prisma.DataSource$importsArgs<ExtArgs>
+  records?: boolean | Prisma.DataSource$recordsArgs<ExtArgs>
   _count?: boolean | Prisma.DataSourceCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type DataSourceIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -843,6 +955,7 @@ export type $DataSourcePayload<ExtArgs extends runtime.Types.Extensions.Internal
   objects: {
     organization: Prisma.$OrganizationPayload<ExtArgs>
     imports: Prisma.$DataImportPayload<ExtArgs>[]
+    records: Prisma.$DataRecordPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1251,6 +1364,7 @@ export interface Prisma__DataSourceClient<T, Null = never, ExtArgs extends runti
   readonly [Symbol.toStringTag]: "PrismaPromise"
   organization<T extends Prisma.OrganizationDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.OrganizationDefaultArgs<ExtArgs>>): Prisma.Prisma__OrganizationClient<runtime.Types.Result.GetResult<Prisma.$OrganizationPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   imports<T extends Prisma.DataSource$importsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.DataSource$importsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$DataImportPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  records<T extends Prisma.DataSource$recordsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.DataSource$recordsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$DataRecordPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1712,6 +1826,30 @@ export type DataSource$importsArgs<ExtArgs extends runtime.Types.Extensions.Inte
   take?: number
   skip?: number
   distinct?: Prisma.DataImportScalarFieldEnum | Prisma.DataImportScalarFieldEnum[]
+}
+
+/**
+ * DataSource.records
+ */
+export type DataSource$recordsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the DataRecord
+   */
+  select?: Prisma.DataRecordSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the DataRecord
+   */
+  omit?: Prisma.DataRecordOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.DataRecordInclude<ExtArgs> | null
+  where?: Prisma.DataRecordWhereInput
+  orderBy?: Prisma.DataRecordOrderByWithRelationInput | Prisma.DataRecordOrderByWithRelationInput[]
+  cursor?: Prisma.DataRecordWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.DataRecordScalarFieldEnum | Prisma.DataRecordScalarFieldEnum[]
 }
 
 /**

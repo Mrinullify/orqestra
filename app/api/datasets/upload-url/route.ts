@@ -155,7 +155,7 @@ export async function POST(request: Request) {
         const dataImportId = crypto.randomUUID();
         const storageKey =
             `organizations/${session.organizationId}/data-sources/${dataSourceId}/imports/${dataImportId}/${safeFileName(fileName)}`;
-        const mimeType = requestedContentType;
+        const mimeType = fileConfig.mimeType;
 
         if (existingSource) {
             await prisma.dataImport.create({
@@ -211,6 +211,7 @@ export async function POST(request: Request) {
             hasSchema: Boolean(existingSource?.schema),
             storageKey,
             uploadUrl,
+            uploadContentType: mimeType,
             expiresInSeconds: 600,
         });
     } catch (error) {

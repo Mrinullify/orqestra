@@ -110,9 +110,7 @@ export async function POST(request: Request) {
         const dataImportId = crypto.randomUUID();
         const storageKey =
             `organizations/${session.organizationId}/data-sources/${dataSourceId}/imports/${dataImportId}/${safeFileName(fileName)}`;
-        const mimeType = requestedContentType === "application/octet-stream"
-            ? fileConfig.mimeType
-            : requestedContentType;
+        const mimeType = requestedContentType;
 
         if (existingSource) {
             await prisma.dataImport.create({

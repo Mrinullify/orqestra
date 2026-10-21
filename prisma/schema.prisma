@@ -169,6 +169,7 @@ model DataImport {
     mimeType       String?
     sizeBytes      BigInt?
     reportingPeriod String?
+    replaceExistingPeriod Boolean @default(false)
     isActive       Boolean         @default(true)
     totalRows      Int?
     acceptedRows   Int             @default(0)

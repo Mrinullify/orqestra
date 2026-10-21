@@ -129,7 +129,7 @@ export async function POST(request: Request) {
             const existingPeriod = await prisma.dataImport.findFirst({
                 where: {
                     dataSourceId: existingSource.id,
-                    reportingPeriod,
+                    reportingPeriod: { equals: reportingPeriod, mode: "insensitive" },
                     status: "COMPLETED",
                     isActive: true,
                 },

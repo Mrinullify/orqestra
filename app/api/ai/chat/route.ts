@@ -171,10 +171,14 @@ export async function POST(request: Request) {
                 ? "No uploaded datasets are currently available for this organization."
                 : "Uploaded company datasets are restricted to HR in this version.";
 
+        const roleInstruction = context.role === "HR"
+            ? ""
+            : "\\n\\nAuthorization note: Employee self-service access to company data is not enabled yet. Do not attempt employee-directory or company-dataset lookups, and do not invent data. Explain that this capability is currently restricted to HR.";
+
         const messages: LlmMessage[] = [
             {
                 role: "system",
-                content: `${systemPrompt}\n\nAvailable dataset context (trusted server-provided metadata):\n${datasetContextText}`,
+                content: `${systemPrompt}${roleInstruction}\n\nAvailable dataset context (trusted server-provided metadata):\n${datasetContextText}`,
             },
             ...conversation,
             { role: "user", content: parsed.data.message },

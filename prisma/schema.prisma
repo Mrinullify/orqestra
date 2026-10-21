@@ -12,6 +12,11 @@ enum DataSourceType {
     EXCEL
 }
 
+enum DatasetPeriodMode {
+    ADDITIVE
+    SNAPSHOT
+}
+
 enum ImportStatus {
     PENDING
     PROCESSING
@@ -143,17 +148,20 @@ model DataSource {
     name           String
     originalName   String
     type           DataSourceType
+    periodMode     DatasetPeriodMode @default(ADDITIVE)
     mimeType       String?
     sizeBytes      BigInt?
     storageKey     String
+    schema         Json?
     organizationId String
     organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
     imports        DataImport[]
     records        DataRecord[]
     createdAt      DateTime       @default(now())
-    updatedAt      DateTime         @updatedAt
+    updatedAt      DateTime       @updatedAt
 
     @@index([organizationId])
+    @@index([organizationId, name])
 }
 
 model DataImport {
@@ -161,6 +169,14 @@ model DataImport {
     dataSourceId   String
     dataSource     DataSource      @relation(fields: [dataSourceId], references: [id], onDelete: Cascade)
     status         ImportStatus    @default(PENDING)
+    originalName   String?
+    storageKey     String?
+    fileType       DataSourceType?
+    mimeType       String?
+    sizeBytes      BigInt?
+    reportingPeriod String?
+    replaceExistingPeriod Boolean @default(false)
+    isActive       Boolean         @default(true)
     totalRows      Int?
     acceptedRows   Int             @default(0)
     rejectedRows   Int             @default(0)

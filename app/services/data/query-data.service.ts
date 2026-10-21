@@ -1,8 +1,14 @@
 import "server-only";
 
+import { requireHR } from "@/app/lib/ai/permissions";
+
 import { Prisma } from "../../../generated/prisma/client";
 import { prisma } from "@/app/lib/prisma";
 import type { ServiceContext } from "@/app/lib/ai/types";
+import {
+    assertDatasetColumns,
+    assertReportingPeriodSelection,
+} from "@/app/services/data/dataset-schema.service";
 
 export interface CompanyDataFilter {
     column: string;
@@ -12,24 +18,55 @@ export interface CompanyDataFilter {
 export async function queryCompanyData(
     context: ServiceContext,
     input: {
-        dataSourceId?: string;
+        dataSourceId: string;
         search?: string;
+        reportingPeriod?: string;
         filters?: CompanyDataFilter[];
         limit: number;
     },
-) {
+ ) {
+    requireHR(context);
+    const dataSource = await prisma.dataSource.findFirst({
+        where: {
+            id: input.dataSourceId,
+            organizationId: context.organizationId,
+        },
+        select: { id: true, name: true },
+    });
+
+    if (!dataSource) {
+        throw new Error("Data source not found.");
+    }
+
+    await assertReportingPeriodSelection(context, input.dataSourceId, input.reportingPeriod);
+    await assertDatasetColumns(
+        context,
+        input.dataSourceId,
+        (input.filters ?? []).map((filter) => filter.column),
+    );
+
     let where = Prisma.sql`
         "organizationId" = ${context.organizationId}
+        AND "dataSourceId" = ${input.dataSourceId}
         AND EXISTS (
             SELECT 1
             FROM "DataImport" AS import_record
             WHERE import_record.id = "DataRecord"."dataImportId"
               AND import_record.status = 'COMPLETED'
+              AND import_record."isActive" = true
         )
     `;
 
-    if (input.dataSourceId) {
-        where = Prisma.sql`${where} AND "dataSourceId" = ${input.dataSourceId}`;
+    if (input.reportingPeriod) {
+        where = Prisma.sql`${where}
+            AND EXISTS (
+                SELECT 1
+                FROM "DataImport" AS period_import
+                WHERE period_import.id = "DataRecord"."dataImportId"
+                  AND period_import.status = 'COMPLETED'
+                  AND period_import."isActive" = true
+                  AND LOWER(BTRIM(period_import."reportingPeriod")) = LOWER(BTRIM(${input.reportingPeriod}))
+            )`;
     }
 
     for (const filter of input.filters ?? []) {
@@ -55,27 +92,6 @@ export async function queryCompanyData(
         ORDER BY "rowNumber" ASC
         LIMIT ${input.limit}
     `);
-
-    let dataSource: { id: string; name: string } | null = null;
-
-    if (input.dataSourceId) {
-        const source = await prisma.dataSource.findFirst({
-            where: {
-                id: input.dataSourceId,
-                organizationId: context.organizationId,
-            },
-            select: {
-                id: true,
-                name: true,
-            },
-        });
-
-        if (!source) {
-            throw new Error("Data source not found.");
-        }
-
-        dataSource = source;
-    }
 
     return {
         dataSource,

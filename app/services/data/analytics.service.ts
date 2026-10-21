@@ -1,8 +1,15 @@
 import "server-only";
 
+import { requireHR } from "@/app/lib/ai/permissions";
+
 import { Prisma } from "../../../generated/prisma/client";
 import { prisma } from "@/app/lib/prisma";
 import type { ServiceContext } from "@/app/lib/ai/types";
+import {
+    assertDatasetColumns,
+    assertDatasetNumericColumns,
+    assertReportingPeriodSelection,
+} from "@/app/services/data/dataset-schema.service";
 
 export interface CompanyDataFilter {
     column: string;
@@ -10,23 +17,30 @@ export interface CompanyDataFilter {
 }
 
 function numericExpression(column: string) {
+    const cleaned = Prisma.sql`
+        regexp_replace(
+            BTRIM(jsonb_extract_path_text("data", ${column})),
+            '[[:space:]$£€₹]',
+            '',
+            'g'
+        )
+    `;
+
+    // Never turn arbitrary text such as "Room 101" into the number 101.
+    // Invalid/non-numeric values become NULL and are excluded from aggregates.
     return Prisma.sql`
-        NULLIF(
-            regexp_replace(
-                jsonb_extract_path_text("data", ${column}),
-                '[^0-9.-]',
-                '',
-                'g'
-            ),
-            ''
-        )::numeric
+        CASE
+            WHEN ${cleaned} ~ '^[+-]?(([0-9]+|[0-9]{1,3}(,[0-9]{3})+)([.][0-9]*)?|[.][0-9]+)$'
+            THEN replace(${cleaned}, ',', '')::numeric
+            ELSE NULL
+        END
     `;
 }
-
 function buildWhere(
     context: ServiceContext,
     dataSourceId: string,
     filters: CompanyDataFilter[] = [],
+    reportingPeriod?: string,
 ) {
     let where = Prisma.sql`
         "organizationId" = ${context.organizationId}
@@ -36,8 +50,21 @@ function buildWhere(
             FROM "DataImport" AS import_record
             WHERE import_record.id = "DataRecord"."dataImportId"
               AND import_record.status = 'COMPLETED'
+              AND import_record."isActive" = true
         )
     `;
+
+    if (reportingPeriod) {
+        where = Prisma.sql`${where}
+            AND EXISTS (
+                SELECT 1
+                FROM "DataImport" AS period_import
+                WHERE period_import.id = "DataRecord"."dataImportId"
+                  AND period_import.status = 'COMPLETED'
+                  AND period_import."isActive" = true
+                  AND LOWER(BTRIM(period_import."reportingPeriod")) = LOWER(BTRIM(${reportingPeriod}))
+            )`;
+    }
 
     for (const filter of filters) {
         where = Prisma.sql`${where}
@@ -51,7 +78,8 @@ function buildWhere(
 async function assertDataSource(
     context: ServiceContext,
     dataSourceId: string,
-) {
+ ) {
+    requireHR(context);
     const source = await prisma.dataSource.findFirst({
         where: {
             id: dataSourceId,
@@ -77,10 +105,16 @@ export async function aggregateCompanyData(
         operation: "count" | "sum" | "average" | "min" | "max";
         column?: string;
         filters?: CompanyDataFilter[];
+        reportingPeriod?: string;
     },
 ) {
     const source = await assertDataSource(context, input.dataSourceId);
-    const where = buildWhere(context, input.dataSourceId, input.filters);
+    await assertReportingPeriodSelection(context, input.dataSourceId, input.reportingPeriod);
+    await assertDatasetColumns(context, input.dataSourceId, [
+        ...(input.operation === "count" ? [] : input.column ? [input.column] : []),
+        ...(input.filters ?? []).map((filter) => filter.column),
+    ]);
+    const where = buildWhere(context, input.dataSourceId, input.filters, input.reportingPeriod);
 
     if (input.operation === "count") {
         const rows = await prisma.$queryRaw<Array<{ value: bigint }>>(Prisma.sql`
@@ -99,6 +133,7 @@ export async function aggregateCompanyData(
     if (!input.column) {
         throw new Error("A numeric column is required for this operation.");
     }
+    await assertDatasetNumericColumns(context, input.dataSourceId, [input.column]);
 
     const expression = numericExpression(input.column);
     const operationSql =
@@ -135,11 +170,18 @@ export async function compareCompanyData(
         operator: "gt" | "gte" | "lt" | "lte" | "eq";
         value: number;
         filters?: CompanyDataFilter[];
+        reportingPeriod?: string;
         limit: number;
     },
 ) {
     const source = await assertDataSource(context, input.dataSourceId);
-    const where = buildWhere(context, input.dataSourceId, input.filters);
+    await assertReportingPeriodSelection(context, input.dataSourceId, input.reportingPeriod);
+    await assertDatasetColumns(context, input.dataSourceId, [
+        input.column,
+        ...(input.filters ?? []).map((filter) => filter.column),
+    ]);
+    await assertDatasetNumericColumns(context, input.dataSourceId, [input.column]);
+    const where = buildWhere(context, input.dataSourceId, input.filters, input.reportingPeriod);
     const expression = numericExpression(input.column);
 
     const comparison =
@@ -187,15 +229,25 @@ export async function groupCompanyData(
         operation: "count" | "sum" | "average" | "min" | "max";
         metricColumn?: string;
         filters?: CompanyDataFilter[];
+        reportingPeriod?: string;
         limit: number;
     },
 ) {
     const source = await assertDataSource(context, input.dataSourceId);
-    const where = buildWhere(context, input.dataSourceId, input.filters);
+    await assertReportingPeriodSelection(context, input.dataSourceId, input.reportingPeriod);
+    await assertDatasetColumns(context, input.dataSourceId, [
+        input.groupBy,
+        ...(input.operation !== "count" && input.metricColumn ? [input.metricColumn] : []),
+        ...(input.filters ?? []).map((filter) => filter.column),
+    ]);
 
     if (input.operation !== "count" && !input.metricColumn) {
         throw new Error("A numeric metric column is required for this operation.");
     }
+    if (input.operation !== "count" && input.metricColumn) {
+        await assertDatasetNumericColumns(context, input.dataSourceId, [input.metricColumn]);
+    }
+    const where = buildWhere(context, input.dataSourceId, input.filters, input.reportingPeriod);
 
     const groupExpression = Prisma.sql`jsonb_extract_path_text("data", ${input.groupBy})`;
     const metricExpression = input.metricColumn

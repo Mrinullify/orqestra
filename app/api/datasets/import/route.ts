@@ -58,7 +58,9 @@ export async function POST(request: Request) {
             );
         }
 
-        const object = await headObject(dataImport.dataSource.storageKey);
+        const objectKey = dataImport.storageKey ?? dataImport.dataSource.storageKey;
+        const expectedSize = dataImport.sizeBytes ?? dataImport.dataSource.sizeBytes;
+        const object = await headObject(objectKey);
 
         if (!object.ContentLength || object.ContentLength <= 0) {
             return NextResponse.json(
@@ -67,7 +69,7 @@ export async function POST(request: Request) {
             );
         }
 
-        if (dataImport.dataSource.sizeBytes?.toString() !== object.ContentLength.toString()) {
+        if (expectedSize?.toString() !== object.ContentLength.toString()) {
             return NextResponse.json(
                 { error: "Uploaded file size does not match the expected size." },
                 { status: 400 },
@@ -90,14 +92,22 @@ export async function POST(request: Request) {
     } catch (error) {
         console.error("Dataset import failed:", error);
 
-        return NextResponse.json(
-            {
-                error:
-                    error instanceof Error
-                        ? error.message
-                        : "Unable to import the uploaded file.",
-            },
-            { status: 500 },
-        );
+        const message = error instanceof Error
+            ? error.message
+            : "Unable to import the uploaded file.";
+        const status = message.startsWith("This file does not match the schema")
+            || message.startsWith("This file contains values that do not match")
+            || message.startsWith("Duplicate column headers")
+            || message.startsWith("CSV parsing failed")
+            || message.startsWith("Row ")
+            || message.startsWith("The file must contain")
+            || message.startsWith("The Excel workbook")
+            || message === "Column headers cannot be empty."
+            ? 422
+            : message.startsWith("The period ")
+              ? 409
+              : 500;
+
+        return NextResponse.json({ error: message }, { status });
     }
 }

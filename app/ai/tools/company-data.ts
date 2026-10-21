@@ -5,8 +5,9 @@ import type { ToolDefinition } from "@/app/lib/ai/types";
 import { queryCompanyData } from "@/app/services/data/query-data.service";
 
 export const queryCompanyDataSchema = z.object({
-    dataSourceId: z.string().min(1).optional(),
+    dataSourceId: z.string().min(1),
     search: z.string().min(1).optional(),
+    reportingPeriod: z.string().trim().min(1).max(80).optional(),
     filters: z
         .array(
             z.object({
@@ -24,9 +25,9 @@ type QueryCompanyDataInput = z.infer<typeof queryCompanyDataSchema>;
 export const queryCompanyDataTool: ToolDefinition<typeof queryCompanyDataSchema> = {
     name: "query_company_data",
     description:
-        `Read uploaded company data from the authenticated user's organization. Use this tool for questions about uploaded CSV/Excel data, including names, salaries, departments, counts, and other columns in imported files. For a person lookup in uploaded data, use search with the person name, such as search="Aman". Use filters for exact column values. Never access another organization's data.`,
+        "Read rows from one named dataset in the authenticated user's organization. Always choose dataSourceId from trusted dataset context or list_data_sources; never omit it or mix rows from different datasets. Use search for a lookup, filters for exact column values, and reportingPeriod to limit results to a specific import period. Never access another organization's data.",
     inputSchema: queryCompanyDataSchema,
-    allowedRoles: ["HR", "EMPLOYEE"],
+    allowedRoles: ["HR"],
     execute: async (input: QueryCompanyDataInput, context) =>
         queryCompanyData(context, input),
 };

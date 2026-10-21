@@ -1,9 +1,12 @@
 import "server-only";
 
+import { requireHR } from "@/app/lib/ai/permissions";
+
 import { prisma } from "@/app/lib/prisma";
 import type { ServiceContext } from "@/app/lib/ai/types";
 
 export async function listDataSources(context: ServiceContext) {
+    requireHR(context);
     const sources = await prisma.dataSource.findMany({
         where: { organizationId: context.organizationId },
         orderBy: { createdAt: "desc" },
@@ -14,12 +17,15 @@ export async function listDataSources(context: ServiceContext) {
             type: true,
             mimeType: true,
             sizeBytes: true,
+            schema: true,
             createdAt: true,
             imports: {
                 orderBy: { createdAt: "desc" },
                 take: 1,
                 select: {
                     id: true,
+                    originalName: true,
+                    reportingPeriod: true,
                     status: true,
                     totalRows: true,
                     acceptedRows: true,
@@ -30,17 +36,21 @@ export async function listDataSources(context: ServiceContext) {
         },
     });
 
-    return sources.map((source) => ({
-        ...source,
-        sizeBytes: source.sizeBytes?.toString() ?? null,
-        latestImport: source.imports[0] ?? null,
-    }));
+    return sources.map((source) => {
+        const { imports, ...dataset } = source;
+        return {
+            ...dataset,
+            sizeBytes: source.sizeBytes?.toString() ?? null,
+            latestImport: imports[0] ?? null,
+        };
+    });
 }
 
 export async function inspectDataSource(
     context: ServiceContext,
     dataSourceId: string,
-) {
+ ) {
+    requireHR(context);
     const source = await prisma.dataSource.findFirst({
         where: {
             id: dataSourceId,
@@ -53,12 +63,15 @@ export async function inspectDataSource(
             type: true,
             mimeType: true,
             sizeBytes: true,
+            schema: true,
             createdAt: true,
             imports: {
                 orderBy: { createdAt: "desc" },
                 take: 1,
                 select: {
                     id: true,
+                    originalName: true,
+                    reportingPeriod: true,
                     status: true,
                     totalRows: true,
                     acceptedRows: true,
@@ -90,6 +103,7 @@ export async function inspectDataSource(
         type: source.type,
         mimeType: source.mimeType,
         sizeBytes: source.sizeBytes?.toString() ?? null,
+        schema: source.schema,
         createdAt: source.createdAt,
         latestImport,
         columns: latestImport?.columnMappings ?? [],
@@ -97,25 +111,32 @@ export async function inspectDataSource(
 }
 
 /**
- * Fetch compact, organization-scoped dataset metadata once per Copilot request.
- * Supplying this context to the model avoids separate list_data_sources and
- * inspect_data_source LLM rounds before it can answer a data question.
+ * Supply the model with trusted metadata for active, successfully imported
+ * files. Pending/failed imports must never be presented as queryable data.
  */
 export async function getCopilotDataContext(context: ServiceContext) {
+    if (context.role !== "HR") return [];
     const sources = await prisma.dataSource.findMany({
-        where: { organizationId: context.organizationId },
+        where: {
+            organizationId: context.organizationId,
+            imports: {
+                some: { status: "COMPLETED", isActive: true },
+            },
+        },
         orderBy: { createdAt: "desc" },
-        take: 8,
+        take: 20,
         select: {
             id: true,
             name: true,
-            originalName: true,
-            type: true,
+            schema: true,
+            periodMode: true,
             imports: {
+                where: { status: "COMPLETED", isActive: true },
                 orderBy: { createdAt: "desc" },
-                take: 1,
+                take: 12,
                 select: {
-                    status: true,
+                    originalName: true,
+                    reportingPeriod: true,
                     totalRows: true,
                     acceptedRows: true,
                     rejectedRows: true,
@@ -125,7 +146,6 @@ export async function getCopilotDataContext(context: ServiceContext) {
                         select: {
                             originalName: true,
                             normalizedName: true,
-                            detectedType: true,
                         },
                     },
                 },
@@ -133,18 +153,18 @@ export async function getCopilotDataContext(context: ServiceContext) {
         },
     });
 
-    return sources.map((source) => {
-        const latestImport = source.imports[0] ?? null;
-        return {
-            id: source.id,
-            name: source.name,
-            originalName: source.originalName,
-            type: source.type,
-            importStatus: latestImport?.status ?? null,
-            totalRows: latestImport?.totalRows ?? null,
-            acceptedRows: latestImport?.acceptedRows ?? null,
-            rejectedRows: latestImport?.rejectedRows ?? null,
-            columns: latestImport?.columnMappings ?? [],
-        };
-    });
+    return sources.map((source) => ({
+        id: source.id,
+        name: source.name,
+        schema: source.schema,
+        periodMode: source.periodMode,
+        imports: source.imports.map((dataImport) => ({
+            originalName: dataImport.originalName,
+            reportingPeriod: dataImport.reportingPeriod,
+            totalRows: dataImport.totalRows,
+            acceptedRows: dataImport.acceptedRows,
+            rejectedRows: dataImport.rejectedRows,
+            columns: dataImport.columnMappings,
+        })),
+    }));
 }

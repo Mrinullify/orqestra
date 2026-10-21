@@ -12,6 +12,7 @@ const employeeSelect = {
 } as const;
 
 export async function listEmployees(context: ServiceContext) {
+    requireHR(context);
     return prisma.user.findMany({
         where: { organizationId: context.organizationId, role: "EMPLOYEE" },
         select: employeeSelect,
@@ -23,6 +24,7 @@ export async function findEmployee(
     context: ServiceContext,
     input: { employeeId?: string; email?: string },
 ) {
+    requireHR(context);
     if (!input.employeeId && !input.email) throw new Error("employeeId or email is required.");
 
     return prisma.user.findFirst({

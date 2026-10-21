@@ -46,18 +46,29 @@ export async function POST(request: Request) {
 
         const body = (await request.json()) as {
             fileName?: unknown;
+            datasetName?: unknown;
+            periodMode?: unknown;
+            reportingPeriod?: unknown;
+            replaceExistingPeriod?: unknown;
             sizeBytes?: unknown;
-            contentType?: unknown;
         };
 
         const fileName =
             typeof body.fileName === "string" ? body.fileName.trim() : "";
+        const datasetName =
+            typeof body.datasetName === "string" ? body.datasetName.trim() : "";
+        const requestedPeriodMode =
+            body.periodMode === "ADDITIVE" || body.periodMode === "SNAPSHOT"
+                ? body.periodMode
+                : null;
+        const reportingPeriod =
+            typeof body.reportingPeriod === "string" && body.reportingPeriod.trim()
+                ? body.reportingPeriod.trim()
+                : null;
+        const replaceExistingPeriod = body.replaceExistingPeriod === true;
         const sizeBytes =
             typeof body.sizeBytes === "number" ? body.sizeBytes : 0;
-        const contentType =
-            typeof body.contentType === "string" && body.contentType
-                ? body.contentType
-                : "application/octet-stream";
+
 
         const extension = getExtension(fileName);
         const fileConfig = allowedExtensions.get(extension);
@@ -69,6 +80,41 @@ export async function POST(request: Request) {
             );
         }
 
+        if (datasetName.length < 2 || datasetName.length > 80) {
+            return NextResponse.json(
+                { error: "Dataset name must contain between 2 and 80 characters." },
+                { status: 400 },
+            );
+        }
+
+        if (!requestedPeriodMode) {
+            return NextResponse.json(
+                { error: "Choose how reporting periods should be handled: additive periods or snapshots." },
+                { status: 400 },
+            );
+        }
+
+        if (!reportingPeriod) {
+            return NextResponse.json(
+                { error: "Provide a reporting period or snapshot label for every uploaded file (for example, October 2026 or Current)." },
+                { status: 400 },
+            );
+        }
+
+        if (reportingPeriod.length > 80) {
+            return NextResponse.json(
+                { error: "Reporting period must be 80 characters or fewer." },
+                { status: 400 },
+            );
+        }
+
+        if (replaceExistingPeriod && !reportingPeriod) {
+            return NextResponse.json(
+                { error: "A reporting period is required when replacing existing period data." },
+                { status: 400 },
+            );
+        }
+
         if (!Number.isSafeInteger(sizeBytes) || sizeBytes <= 0 || sizeBytes > MAX_FILE_SIZE) {
             return NextResponse.json(
                 { error: "The file must be non-empty and no larger than 100 MB." },
@@ -76,47 +122,106 @@ export async function POST(request: Request) {
             );
         }
 
-        const dataSourceId = crypto.randomUUID();
-        const storageKey =
-            `organizations/${session.organizationId}/data-sources/${dataSourceId}/${safeFileName(fileName)}`;
-
-        const dataSource = await prisma.dataSource.create({
-            data: {
-                id: dataSourceId,
-                name: fileName,
-                originalName: fileName,
-                type: fileConfig.type,
-                mimeType: contentType || fileConfig.mimeType,
-                sizeBytes,
-                storageKey,
+        const matchingSources = await prisma.dataSource.findMany({
+            where: {
                 organizationId: session.organizationId,
-                imports: {
-                    create: {},
-                },
+                name: { equals: datasetName, mode: "insensitive" },
             },
-            include: {
-                imports: {
-                    orderBy: { createdAt: "desc" },
-                    take: 1,
-                },
-            },
+            take: 2,
+            select: { id: true, schema: true, periodMode: true },
         });
 
-        const dataImport = dataSource.imports[0];
-        if (!dataImport) {
-            throw new Error("Unable to create data import.");
+        if (matchingSources.length > 1) {
+            return NextResponse.json(
+                { error: "More than one existing dataset has this name. Rename or reconcile the existing datasets before uploading more files." },
+                { status: 409 },
+            );
+        }
+
+        const existingSource = matchingSources[0] ?? null;
+
+        if (existingSource && reportingPeriod) {
+            const existingPeriod = await prisma.dataImport.findFirst({
+                where: {
+                    dataSourceId: existingSource.id,
+                    reportingPeriod: { equals: reportingPeriod, mode: "insensitive" },
+                    status: "COMPLETED",
+                    isActive: true,
+                },
+                select: { id: true },
+            });
+
+            if (existingPeriod && !replaceExistingPeriod) {
+                return NextResponse.json(
+                    { error: `The period "${reportingPeriod}" already exists in this dataset. Enable "Replace existing period" to replace it safely, or choose a different period.` },
+                    { status: 409 },
+                );
+            }
+        }
+
+        const dataSourceId = existingSource?.id ?? crypto.randomUUID();
+        const dataImportId = crypto.randomUUID();
+        const storageKey =
+            `organizations/${session.organizationId}/data-sources/${dataSourceId}/imports/${dataImportId}/${safeFileName(fileName)}`;
+        const mimeType = fileConfig.mimeType;
+
+        if (existingSource) {
+            await prisma.dataImport.create({
+                data: {
+                    id: dataImportId,
+                    dataSourceId,
+                    originalName: fileName,
+                    storageKey,
+                    fileType: fileConfig.type,
+                    mimeType,
+                    sizeBytes,
+                    reportingPeriod,
+                    replaceExistingPeriod,
+                },
+            });
+        } else {
+            await prisma.dataSource.create({
+                data: {
+                    id: dataSourceId,
+                    name: datasetName,
+                    originalName: fileName,
+                    type: fileConfig.type,
+                    periodMode: requestedPeriodMode,
+                    mimeType,
+                    sizeBytes,
+                    storageKey,
+                    organizationId: session.organizationId,
+                    imports: {
+                        create: {
+                            id: dataImportId,
+                            originalName: fileName,
+                            storageKey,
+                            fileType: fileConfig.type,
+                            mimeType,
+                            sizeBytes,
+                            reportingPeriod,
+                            replaceExistingPeriod,
+                        },
+                    },
+                },
+            });
         }
 
         const uploadUrl = await createUploadUrl({
             key: storageKey,
-            contentType,
+            contentType: mimeType,
         });
 
         return NextResponse.json({
-            dataSourceId: dataSource.id,
-            dataImportId: dataImport.id,
+            dataSourceId,
+            dataImportId,
+            datasetName,
+            existingDataset: Boolean(existingSource),
+            hasSchema: Boolean(existingSource?.schema),
+            periodMode: existingSource?.periodMode ?? requestedPeriodMode,
             storageKey,
             uploadUrl,
+            uploadContentType: mimeType,
             expiresInSeconds: 600,
         });
     } catch (error) {

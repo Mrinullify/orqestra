@@ -7,30 +7,15 @@ import { prisma } from "@/app/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
 import { getObjectBytes } from "@/app/lib/storage";
 import type { ServiceContext } from "@/app/lib/ai/types";
+import { inferDatasetColumnTypes, normalizeHeaders, readDatasetSchemaColumns, readDatasetSchemaTypes, validateDatasetColumnTypes, validateDatasetSchema, type DatasetColumnType } from "@/app/services/data/schema-contract";
 
 const MAX_IMPORT_ROWS = 250_000;
 const BATCH_SIZE = 1_000;
 
-function normalizeColumnName(value: string): string {
-    const normalized = value
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "_")
-        .replace(/^_+|_+$/g, "");
-
-    return normalized || "column";
-}
-
-function normalizeHeaders(headers: string[]): string[] {
-    const counts = new Map<string, number>();
-
-    return headers.map((header) => {
-        const base = normalizeColumnName(header);
-        const count = (counts.get(base) ?? 0) + 1;
-        counts.set(base, count);
-        return count === 1 ? base : `${base}_${count}`;
-    });
-}
+type ParsedRows = {
+    rows: Array<Record<string, unknown>>;
+    headers: string[];
+};
 
 function buildRecords(
     rows: Array<Record<string, unknown>>,
@@ -51,15 +36,58 @@ function buildRecords(
     });
 }
 
+function rowsFromMatrix(
+    matrix: unknown[][],
+    sourceType: "CSV" | "EXCEL",
+): ParsedRows {
+    if (matrix.length === 0 || !matrix[0]?.length) {
+        throw new Error("The file must contain a header row and at least one data row.");
+    }
+
+    const headers = matrix[0].map((value) =>
+        value === null || value === undefined ? "" : String(value).trim(),
+    );
+    // Validate before converting rows into objects; object conversion would hide
+    // duplicate header names by overwriting one of the values.
+    normalizeHeaders(headers);
+
+    const rawRows = matrix.slice(1).filter((row) =>
+        row.some((value) => value !== null && value !== undefined && String(value).trim() !== ""),
+    );
+    if (rawRows.length === 0) {
+        throw new Error("The file must contain a header and at least one data row.");
+    }
+
+    const rows = rawRows.map((row, index) => {
+        if (row.length > headers.length && row.slice(headers.length).some(
+            (value) => value !== null && value !== undefined && String(value).trim() !== "",
+        )) {
+            throw new Error(`Row ${index + 2} contains more values than the header defines.`);
+        }
+        if (sourceType === "CSV" && row.length !== headers.length) {
+            throw new Error(
+                `Row ${index + 2} has ${row.length} columns; expected ${headers.length} based on the header.`,
+            );
+        }
+
+        const record: Record<string, unknown> = {};
+        headers.forEach((header, headerIndex) => {
+            record[header] = row[headerIndex] ?? null;
+        });
+        return record;
+    });
+
+    return { rows, headers };
+}
+
 async function parseRows(
     bytes: Uint8Array,
     type: "CSV" | "EXCEL",
-) {
+): Promise<ParsedRows> {
     if (type === "CSV") {
         const text = Buffer.from(bytes).toString("utf8");
-
-        const result = Papa.parse<Record<string, unknown>>(text, {
-            header: true,
+        const result = Papa.parse<string[]>(text, {
+            header: false,
             skipEmptyLines: "greedy",
         });
 
@@ -72,15 +100,7 @@ async function parseRows(
             );
         }
 
-        const headers = result.meta.fields ?? [];
-        if (headers.length === 0) {
-            throw new Error("The CSV must contain a header row.");
-        }
-
-        return {
-            rows: result.data,
-            headers,
-        };
+        return rowsFromMatrix(result.data, "CSV");
     }
 
     const workbook = XLSX.read(Buffer.from(bytes), {
@@ -94,17 +114,14 @@ async function parseRows(
     }
 
     const sheet = workbook.Sheets[firstSheet];
-    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
+    const matrix = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
+        header: 1,
         defval: null,
         raw: false,
+        blankrows: false,
     });
 
-    const headers = rows.length > 0 ? Object.keys(rows[0]) : [];
-    if (headers.length === 0) {
-        throw new Error("The Excel sheet must contain a header row and data.");
-    }
-
-    return { rows, headers };
+    return rowsFromMatrix(matrix, "EXCEL");
 }
 
 export async function processDataImport(
@@ -138,13 +155,15 @@ export async function processDataImport(
     });
 
     try {
-        const bytes = await getObjectBytes(dataImport.dataSource.storageKey);
+        const objectKey = dataImport.storageKey ?? dataImport.dataSource.storageKey;
+        const fileType = dataImport.fileType ?? dataImport.dataSource.type;
+        const bytes = await getObjectBytes(objectKey);
 
         if (bytes.byteLength === 0) {
             throw new Error("The uploaded file is empty.");
         }
 
-        const parsed = await parseRows(bytes, dataImport.dataSource.type);
+        const parsed = await parseRows(bytes, fileType);
 
         if (parsed.rows.length > MAX_IMPORT_ROWS) {
             throw new Error(
@@ -153,6 +172,78 @@ export async function processDataImport(
         }
 
         const normalizedHeaders = normalizeHeaders(parsed.headers);
+        const storedSchemaColumns = readDatasetSchemaColumns(dataImport.dataSource.schema);
+        const storedSchemaTypes = readDatasetSchemaTypes(dataImport.dataSource.schema);
+        let expectedColumns = storedSchemaColumns;
+        let expectedTypes = storedSchemaTypes;
+        const inferredTypes = inferDatasetColumnTypes(
+            parsed.rows,
+            parsed.headers,
+            normalizedHeaders,
+        );
+
+        // Adopt column metadata from the latest successful legacy import when
+        // this dataset predates the schema-contract migration.
+        if (!expectedColumns || !expectedTypes) {
+            const previousImport = await prisma.dataImport.findFirst({
+                where: {
+                    dataSourceId: dataImport.dataSourceId,
+                    id: { not: dataImport.id },
+                    status: "COMPLETED",
+                },
+                orderBy: { createdAt: "desc" },
+                select: {
+                    columnMappings: {
+                        select: { normalizedName: true, detectedType: true },
+                    },
+                },
+            });
+            const mappings = previousImport?.columnMappings ?? [];
+            const previousColumns = mappings.map((mapping) => mapping.normalizedName);
+            if (!expectedColumns && previousColumns.length) expectedColumns = previousColumns;
+
+            if (!expectedTypes) {
+                const knownTypes = new Set(["number", "date", "boolean", "string", "mixed"]);
+                const previousTypes: Record<string, DatasetColumnType> = {};
+                for (const mapping of mappings) {
+                    if (mapping.detectedType && knownTypes.has(mapping.detectedType)) {
+                        previousTypes[mapping.normalizedName] = mapping.detectedType as DatasetColumnType;
+                    }
+                }
+                if (Object.keys(previousTypes).length) expectedTypes = previousTypes;
+            }
+        }
+
+        if (expectedColumns) {
+            validateDatasetSchema(
+                [...expectedColumns].sort(),
+                [...normalizedHeaders].sort(),
+            );
+        }
+        validateDatasetColumnTypes(
+            expectedTypes,
+            parsed.rows,
+            parsed.headers,
+            normalizedHeaders,
+        );
+
+        if (dataImport.reportingPeriod && !dataImport.replaceExistingPeriod) {
+            const duplicatePeriod = await prisma.dataImport.findFirst({
+                where: {
+                    dataSourceId: dataImport.dataSourceId,
+                    id: { not: dataImport.id },
+                    reportingPeriod: { equals: dataImport.reportingPeriod, mode: "insensitive" },
+                    status: "COMPLETED",
+                    isActive: true,
+                },
+                select: { id: true },
+            });
+            if (duplicatePeriod) {
+                throw new Error(
+                    `The period "${dataImport.reportingPeriod}" already exists in this dataset. Enable replacement to avoid double-counting.`,
+                );
+            }
+        }
 
         await prisma.$transaction(async (tx) => {
             await tx.dataRecord.deleteMany({
@@ -168,8 +259,8 @@ export async function processDataImport(
                     dataImportId: dataImport.id,
                     originalName: header,
                     normalizedName: normalizedHeaders[index],
-                    detectedType: "unknown",
-                    confidence: 0,
+                    detectedType: inferredTypes[normalizedHeaders[index]],
+                    confidence: inferredTypes[normalizedHeaders[index]] === "unknown" ? 0 : 1,
                     isApproved: true,
                 })),
             });
@@ -195,22 +286,87 @@ export async function processDataImport(
             });
         }
 
-        const completed = await prisma.dataImport.update({
-            where: { id: dataImport.id },
-            data: {
-                status: "COMPLETED",
-                totalRows: records.length,
-                acceptedRows: records.length,
-                rejectedRows: 0,
-                completedAt: new Date(),
-            },
-            select: {
-                id: true,
-                status: true,
-                totalRows: true,
-                acceptedRows: true,
-                rejectedRows: true,
-            },
+        const completed = await prisma.$transaction(async (tx) => {
+            if (!storedSchemaColumns) {
+                const contractColumns = expectedColumns ?? normalizedHeaders;
+                const schemaUpdate = await tx.dataSource.updateMany({
+                    where: {
+                        id: dataImport.dataSourceId,
+                        schema: { equals: Prisma.DbNull },
+                    },
+                    data: {
+                        schema: {
+                            version: 1,
+                            columns: contractColumns,
+                            types: { ...inferredTypes, ...(expectedTypes ?? {}) },
+                        } as Prisma.InputJsonValue,
+                    },
+                });
+
+                if (schemaUpdate.count === 0) {
+                    const currentSource = await tx.dataSource.findFirst({
+                        where: {
+                            id: dataImport.dataSourceId,
+                            organizationId: context.organizationId,
+                        },
+                        select: { schema: true },
+                    });
+                    const currentColumns = readDatasetSchemaColumns(currentSource?.schema);
+                    if (!currentColumns) {
+                        throw new Error("Unable to establish a stable schema for this dataset.");
+                    }
+                    validateDatasetSchema(currentColumns, contractColumns);
+                    validateDatasetColumnTypes(
+                        readDatasetSchemaTypes(currentSource?.schema),
+                        parsed.rows,
+                        parsed.headers,
+                        normalizedHeaders,
+                    );
+                }
+            } else if (!storedSchemaTypes) {
+                await tx.dataSource.update({
+                    where: { id: dataImport.dataSourceId },
+                    data: {
+                        schema: {
+                            version: 1,
+                            columns: storedSchemaColumns,
+                            types: { ...inferredTypes, ...(expectedTypes ?? {}) },
+                        } as Prisma.InputJsonValue,
+                    },
+                });
+            }
+
+            if (dataImport.replaceExistingPeriod && dataImport.reportingPeriod) {
+                await tx.dataImport.updateMany({
+                    where: {
+                        dataSourceId: dataImport.dataSourceId,
+                        id: { not: dataImport.id },
+                        reportingPeriod: { equals: dataImport.reportingPeriod, mode: "insensitive" },
+                        status: "COMPLETED",
+                        isActive: true,
+                    },
+                    data: { isActive: false },
+                });
+            }
+
+            return tx.dataImport.update({
+                where: { id: dataImport.id },
+                data: {
+                    status: "COMPLETED",
+                    isActive: true,
+                    totalRows: records.length,
+                    acceptedRows: records.length,
+                    rejectedRows: 0,
+                    completedAt: new Date(),
+                },
+                select: {
+                    id: true,
+                    status: true,
+                    totalRows: true,
+                    acceptedRows: true,
+                    rejectedRows: true,
+                },
+            });
         });
 
         return completed;

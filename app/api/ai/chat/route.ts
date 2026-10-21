@@ -3,7 +3,7 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { generateResponse, LlmRateLimitError, type LlmMessage, type LlmTool } from "@/app/ai/llm/client";
+import { generateResponse, LlmConnectionError, LlmRateLimitError, type LlmMessage, type LlmTool } from "@/app/ai/llm/client";
 import { toolRegistry, executeTool } from "@/app/ai/tools";
 import { getToolContext } from "@/app/lib/ai/context";
 import { ApprovalRequiredError } from "@/app/lib/ai/approvals";
@@ -227,6 +227,16 @@ export async function POST(request: Request) {
             { status: 500 },
         );
     } catch (error) {
+        if (error instanceof LlmConnectionError) {
+            return NextResponse.json(
+                {
+                    error: "The AI provider could not be reached after retrying. Please try again shortly.",
+                    requestId: context.requestId,
+                },
+                { status: 503, headers: { "Retry-After": "2" } },
+            );
+        }
+
         if (error instanceof LlmRateLimitError) {
             const retryAfterSeconds = error.retryAfterSeconds;
             const headers = retryAfterSeconds === undefined

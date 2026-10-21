@@ -47,6 +47,7 @@ export async function POST(request: Request) {
         const body = (await request.json()) as {
             fileName?: unknown;
             datasetName?: unknown;
+            periodMode?: unknown;
             reportingPeriod?: unknown;
             replaceExistingPeriod?: unknown;
             sizeBytes?: unknown;
@@ -56,6 +57,10 @@ export async function POST(request: Request) {
             typeof body.fileName === "string" ? body.fileName.trim() : "";
         const datasetName =
             typeof body.datasetName === "string" ? body.datasetName.trim() : "";
+        const requestedPeriodMode =
+            body.periodMode === "ADDITIVE" || body.periodMode === "SNAPSHOT"
+                ? body.periodMode
+                : null;
         const reportingPeriod =
             typeof body.reportingPeriod === "string" && body.reportingPeriod.trim()
                 ? body.reportingPeriod.trim()
@@ -78,6 +83,13 @@ export async function POST(request: Request) {
         if (datasetName.length < 2 || datasetName.length > 80) {
             return NextResponse.json(
                 { error: "Dataset name must contain between 2 and 80 characters." },
+                { status: 400 },
+            );
+        }
+
+        if (!requestedPeriodMode) {
+            return NextResponse.json(
+                { error: "Choose how reporting periods should be handled: additive periods or snapshots." },
                 { status: 400 },
             );
         }
@@ -109,7 +121,7 @@ export async function POST(request: Request) {
                 name: { equals: datasetName, mode: "insensitive" },
             },
             take: 2,
-            select: { id: true, schema: true },
+            select: { id: true, schema: true, periodMode: true },
         });
 
         if (matchingSources.length > 1) {
@@ -174,6 +186,7 @@ export async function POST(request: Request) {
                     name: datasetName,
                     originalName: fileName,
                     type: fileConfig.type,
+                    periodMode: requestedPeriodMode,
                     mimeType,
                     sizeBytes,
                     storageKey,
@@ -205,6 +218,7 @@ export async function POST(request: Request) {
             datasetName,
             existingDataset: Boolean(existingSource),
             hasSchema: Boolean(existingSource?.schema),
+            periodMode: existingSource?.periodMode ?? requestedPeriodMode,
             storageKey,
             uploadUrl,
             uploadContentType: mimeType,

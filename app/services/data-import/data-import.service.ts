@@ -298,7 +298,7 @@ export async function processDataImport(
                         schema: {
                             version: 1,
                             columns: contractColumns,
-                            types: expectedTypes ?? inferredTypes,
+                            types: { ...inferredTypes, ...(expectedTypes ?? {}) },
                         } as Prisma.InputJsonValue,
                     },
                 });
@@ -330,7 +330,7 @@ export async function processDataImport(
                         schema: {
                             version: 1,
                             columns: storedSchemaColumns,
-                            types: expectedTypes ?? inferredTypes,
+                            types: { ...inferredTypes, ...(expectedTypes ?? {}) },
                         } as Prisma.InputJsonValue,
                     },
                 });

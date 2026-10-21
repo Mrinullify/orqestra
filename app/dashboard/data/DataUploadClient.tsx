@@ -166,7 +166,7 @@ export default function DataUploadClient() {
                     </label>
 
                     <label className="block text-sm font-medium text-zinc-700">
-                        Reporting period <span className="font-normal text-zinc-400">(optional)</span>
+                        Reporting period <span className="font-normal text-zinc-400">(required for repeat uploads)</span>
                         <input
                             type="text"
                             value={reportingPeriod}
@@ -177,7 +177,7 @@ export default function DataUploadClient() {
                             className="mt-2 block w-full rounded-xl border border-zinc-200 px-3 py-2.5 font-normal outline-none focus:border-zinc-500"
                         />
                         <span className="mt-1 block text-xs font-normal text-zinc-500">
-                            Helps distinguish monthly files and reporting snapshots.
+                            Helps distinguish monthly files and reporting snapshots. Required when adding another file to an existing dataset.
                         </span>
                     </label>
                 </div>

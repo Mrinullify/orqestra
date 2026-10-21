@@ -129,6 +129,7 @@ export async function getCopilotDataContext(context: ServiceContext) {
             id: true,
             name: true,
             schema: true,
+            periodMode: true,
             imports: {
                 where: { status: "COMPLETED", isActive: true },
                 orderBy: { createdAt: "desc" },
@@ -156,6 +157,7 @@ export async function getCopilotDataContext(context: ServiceContext) {
         id: source.id,
         name: source.name,
         schema: source.schema,
+        periodMode: source.periodMode,
         imports: source.imports.map((dataImport) => ({
             originalName: dataImport.originalName,
             reportingPeriod: dataImport.reportingPeriod,

@@ -31,18 +31,32 @@ export async function PUT(request: Request) {
             );
         }
 
-        const dataSource = await prisma.dataSource.findFirst({
+        const dataImport = await prisma.dataImport.findFirst({
             where: {
                 storageKey: key,
-                organizationId: session.organizationId,
+                dataSource: { organizationId: session.organizationId },
             },
             select: {
-                id: true,
                 sizeBytes: true,
+                dataSource: { select: { sizeBytes: true } },
             },
         });
 
-        if (!dataSource) {
+        // Backwards compatibility for uploads created before file metadata moved
+        // onto DataImport.
+        const legacySource = dataImport
+            ? null
+            : await prisma.dataSource.findFirst({
+                where: {
+                    storageKey: key,
+                    organizationId: session.organizationId,
+                },
+                select: { sizeBytes: true },
+            });
+
+        const expectedSize = dataImport?.sizeBytes ?? legacySource?.sizeBytes;
+
+        if (expectedSize === undefined || expectedSize === null) {
             return NextResponse.json(
                 { error: "Upload target not found." },
                 { status: 404 },
@@ -58,7 +72,7 @@ export async function PUT(request: Request) {
             );
         }
 
-        if (dataSource.sizeBytes?.toString() !== body.byteLength.toString()) {
+        if (expectedSize.toString() !== body.byteLength.toString()) {
             return NextResponse.json(
                 { error: "Uploaded file size does not match the expected size." },
                 { status: 400 },

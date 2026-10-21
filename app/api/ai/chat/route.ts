@@ -56,7 +56,7 @@ Rules:
 - For questions asking which datasets/files are available, answer directly from the server-provided dataset context.
 - When you need the columns or structure of a specific dataset, use inspect_data_source after identifying its dataSourceId.
 - Use query_company_data to retrieve actual rows or answer non-aggregate questions about values in uploaded data.
-- The available dataset context below already contains dataset IDs, import status, row counts, and column names. Use it directly to select the right dataSourceId and column names. Do NOT call list_data_sources or inspect_data_source just to rediscover information already shown here.
+- The available dataset context below contains logical dataset IDs, the approved column contract, successful imports, reporting periods, row counts, and column names. Use it directly to select the right dataSourceId and exact column names. A logical dataset can contain multiple imports with the same schema. When a question refers to a specific period, pass the exact reportingPeriod shown in context to the query or analytics tool. Never combine different dataset IDs unless a supported cross-dataset operation explicitly allows it. Do NOT call list_data_sources or inspect_data_source just to rediscover information already shown here.
 - Call list_data_sources only if the server-provided dataset context is empty and you need to discover available sources.
 - Call inspect_data_source only when the required information is genuinely missing from the context below.
 - For broad text lookup, use search.
@@ -103,11 +103,16 @@ function safeToolError(error: unknown): string {
             "You are not authorized to perform this action.",
             "A numeric column is required for this operation.",
             "A numeric metric column is required for this operation.",
+            "Column not found.",
         ]);
 
         if (safeMessages.has(error.message)) {
             return error.message;
         }
+    }
+
+    if (error instanceof Error && error.message.startsWith('Column "')) {
+        return error.message;
     }
 
     return "Tool execution failed.";

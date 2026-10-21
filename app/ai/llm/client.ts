@@ -15,10 +15,10 @@ const config = llmConfigSchema.parse({
 });
 
 const MAX_COMPLETION_TOKENS = 1024;
-const MAX_RATE_LIMIT_RETRIES = 2;
+const MAX_RATE_LIMIT_RETRIES = 1;
 const MAX_NETWORK_RETRIES = 2;
 const BASE_NETWORK_RETRY_DELAY_MS = 750;
-const MAX_RETRY_DELAY_MS = 30_000;
+const MAX_RETRY_DELAY_MS = 2_000;
 
 export class LlmRateLimitError extends Error {
     constructor(public readonly retryAfterSeconds?: number) {
@@ -158,6 +158,9 @@ async function callChatCompletions(
                     ? 1000 * 2 ** attempt
                     : Math.ceil(retryAfterSeconds * 1000);
 
+                // Do not keep a user's chat request waiting for long provider cooldowns.
+                // Retry once only when the suggested wait is short; otherwise return 429
+                // immediately so the UI can explain the rate limit and the user can retry.
                 if (canRetry && retryDelayMs <= MAX_RETRY_DELAY_MS) {
                     console.warn(
                         `Groq rate limit reached; retrying in ${retryDelayMs}ms (attempt ${attempt + 1}/${MAX_RATE_LIMIT_RETRIES}).`,

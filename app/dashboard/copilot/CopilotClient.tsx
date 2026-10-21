@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 
 type ChartPayload = {
     type: "bar";
@@ -14,6 +14,16 @@ type Message = {
     role: "user" | "assistant";
     content: string;
     chart?: ChartPayload;
+    transient?: boolean;
+    retryable?: boolean;
+    excludeFromContext?: boolean;
+};
+
+type ChatResponse = {
+    message?: string;
+    chart?: ChartPayload;
+    error?: string;
+    retryAfterSeconds?: number;
 };
 
 const suggestions = [
@@ -26,18 +36,42 @@ export default function CopilotClient() {
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState("");
     const [loading, setLoading] = useState(false);
+    const [cooldownSeconds, setCooldownSeconds] = useState(0);
+    const [retryMessage, setRetryMessage] = useState<string | null>(null);
 
-    async function sendMessage(message?: string) {
+    useEffect(() => {
+        if (cooldownSeconds <= 0) return;
+
+        const timer = window.setTimeout(() => {
+            setCooldownSeconds((remaining) => Math.max(0, remaining - 1));
+        }, 1000);
+
+        return () => window.clearTimeout(timer);
+    }, [cooldownSeconds]);
+
+    async function sendMessage(
+        message?: string,
+        options: { retry?: boolean } = {},
+    ) {
         const text = (message ?? input).trim();
 
-        if (!text || loading) return;
+        if (!text || loading || cooldownSeconds > 0) return;
 
-        setInput("");
-        setMessages((current) => [
-            ...current,
-            { role: "user", content: text },
-        ]);
+        if (!options.retry) {
+            setInput("");
+            setMessages((current) => [
+                ...current,
+                { role: "user", content: text },
+            ]);
+        }
+
         setLoading(true);
+
+        // Keep only actual conversation turns. Rate-limit and network errors are UI
+        // notices, not assistant answers, and failed prompts are excluded until retried.
+        const history = messages
+            .filter((item) => !item.transient && !item.excludeFromContext)
+            .map(({ role, content }) => ({ role, content }));
 
         try {
             const response = await fetch("/api/ai/chat", {
@@ -47,39 +81,93 @@ export default function CopilotClient() {
                 },
                 body: JSON.stringify({
                     message: text,
-                    messages: messages,
+                    messages: history,
                 }),
             });
 
-            const data = (await response.json()) as {
-                message?: string;
-                chart?: ChartPayload;
-                error?: string;
-            };
+            const data = (await response.json()) as ChatResponse;
 
             if (!response.ok) {
+                if (response.status === 429) {
+                    const headerRetryAfter = Number(response.headers.get("Retry-After"));
+                    const retryAfter = typeof data.retryAfterSeconds === "number"
+                        ? data.retryAfterSeconds
+                        : headerRetryAfter;
+                    const seconds = Number.isFinite(retryAfter) && retryAfter > 0
+                        ? Math.ceil(retryAfter)
+                        : 0;
+
+                    setCooldownSeconds(seconds);
+                    setRetryMessage(text);
+                    setMessages((current) => {
+                        const next = current.filter((item) => !item.transient);
+                        for (let index = next.length - 1; index >= 0; index -= 1) {
+                            const item = next[index];
+                            if (item.role === "user" && item.content === text) {
+                                next[index] = { ...item, excludeFromContext: true };
+                                break;
+                            }
+                        }
+                        return [
+                            ...next,
+                            {
+                                role: "assistant",
+                                content: data.error ?? "The AI service is rate limited. Please retry shortly.",
+                                transient: true,
+                                retryable: true,
+                            },
+                        ];
+                    });
+                    return;
+                }
+
                 throw new Error(data.error ?? "Unable to process your request.");
             }
 
-            setMessages((current) => [
-                ...current,
-                {
-                    role: "assistant",
-                    content: data.message ?? "I couldn't generate a response.",
-                    ...(data.chart ? { chart: data.chart } : {}),
-                },
-            ]);
+            setCooldownSeconds(0);
+            setRetryMessage(null);
+            setMessages((current) => {
+                const next = current.filter((item) => !item.transient);
+                if (options.retry) {
+                    for (let index = next.length - 1; index >= 0; index -= 1) {
+                        const item = next[index];
+                        if (item.role === "user" && item.content === text && item.excludeFromContext) {
+                            next[index] = { ...item, excludeFromContext: false };
+                            break;
+                        }
+                    }
+                }
+
+                return [
+                    ...next,
+                    {
+                        role: "assistant",
+                        content: data.message ?? "I couldn't generate a response.",
+                        ...(data.chart ? { chart: data.chart } : {}),
+                    },
+                ];
+            });
         } catch (error) {
-            setMessages((current) => [
-                ...current,
-                {
-                    role: "assistant",
-                    content:
-                        error instanceof Error
+            setMessages((current) => {
+                const next = current.filter((item) => !item.transient);
+                for (let index = next.length - 1; index >= 0; index -= 1) {
+                    const item = next[index];
+                    if (item.role === "user" && item.content === text) {
+                        next[index] = { ...item, excludeFromContext: true };
+                        break;
+                    }
+                }
+                return [
+                    ...next,
+                    {
+                        role: "assistant",
+                        content: error instanceof Error
                             ? error.message
                             : "Something went wrong. Please try again.",
-                },
-            ]);
+                        transient: true,
+                    },
+                ];
+            });
         } finally {
             setLoading(false);
         }
@@ -112,7 +200,8 @@ export default function CopilotClient() {
                                     key={suggestion}
                                     type="button"
                                     onClick={() => void sendMessage(suggestion)}
-                                    className="rounded-full border border-zinc-200 px-3 py-2 text-sm text-zinc-600 transition hover:border-zinc-300 hover:bg-zinc-50 hover:text-zinc-900"
+                                    disabled={loading || cooldownSeconds > 0}
+                                    className="rounded-full border border-zinc-200 px-3 py-2 text-sm text-zinc-600 transition hover:border-zinc-300 hover:bg-zinc-50 hover:text-zinc-900 disabled:cursor-not-allowed disabled:opacity-50"
                                 >
                                     {suggestion}
                                 </button>
@@ -127,12 +216,26 @@ export default function CopilotClient() {
                         >
                             <div
                                 className={
-                                    message.role === "user"
-                                        ? "max-w-[85%] rounded-2xl rounded-br-md bg-zinc-900 px-4 py-3 text-sm text-white"
-                                        : "max-w-[85%] rounded-2xl rounded-bl-md bg-zinc-100 px-4 py-3 text-sm whitespace-pre-wrap text-zinc-800"
+                                    message.transient
+                                        ? "max-w-[85%] rounded-2xl rounded-bl-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm whitespace-pre-wrap text-amber-900"
+                                        : message.role === "user"
+                                            ? "max-w-[85%] rounded-2xl rounded-br-md bg-zinc-900 px-4 py-3 text-sm text-white"
+                                            : "max-w-[85%] rounded-2xl rounded-bl-md bg-zinc-100 px-4 py-3 text-sm whitespace-pre-wrap text-zinc-800"
                                 }
                             >
                                 <div>{message.content}</div>
+                                {message.transient && message.retryable && retryMessage && (
+                                    <button
+                                        type="button"
+                                        onClick={() => void sendMessage(retryMessage, { retry: true })}
+                                        disabled={loading || cooldownSeconds > 0}
+                                        className="mt-3 rounded-lg border border-amber-300 px-3 py-2 text-xs font-semibold transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                    >
+                                        {cooldownSeconds > 0
+                                            ? `Retry in ${cooldownSeconds}s`
+                                            : "Retry previous question"}
+                                    </button>
+                                )}
                                 {message.role === "assistant" && message.chart && (
                                     <div className="mt-4 w-full min-w-[260px] rounded-xl border border-zinc-200 bg-white p-4 text-zinc-800 sm:min-w-[360px]">
                                         <div className="mb-3">
@@ -172,6 +275,11 @@ export default function CopilotClient() {
             </div>
 
             <form onSubmit={handleSubmit} className="border-t border-zinc-200 p-4">
+                {cooldownSeconds > 0 && (
+                    <p role="status" className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                        Groq is rate-limiting requests. You can retry in {cooldownSeconds} second{cooldownSeconds === 1 ? "" : "s"}. Your conversation context is being kept.
+                    </p>
+                )}
                 <div className="flex gap-3">
                     <input
                         value={input}
@@ -182,14 +290,15 @@ export default function CopilotClient() {
                     />
                     <button
                         type="submit"
-                        disabled={loading || !input.trim()}
+                        disabled={loading || !input.trim() || cooldownSeconds > 0}
                         className="rounded-xl bg-zinc-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                        Send
+                        {loading ? "Thinking…" : cooldownSeconds > 0 ? `Wait ${cooldownSeconds}s` : "Send"}
                     </button>
                 </div>
                 <p className="mt-2 text-xs text-zinc-400">
                     Ask natural-language questions, compare groups, and request charts from your company data.
+                    Conversation context includes recent successful turns; refresh the page to start a new chat.
                 </p>
             </form>
         </div>

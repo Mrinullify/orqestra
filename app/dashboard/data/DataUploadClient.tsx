@@ -153,7 +153,7 @@ export default function DataUploadClient() {
                         <input
                             type="text"
                             value={datasetName}
-                            onChange={(event) => setDatasetName(event.target.value)}
+                            onChange={(event) => { setDatasetName(event.target.value); setReplaceExistingPeriod(false); }}
                             maxLength={80}
                             placeholder="e.g. Sales Data"
                             disabled={loading}
@@ -170,7 +170,7 @@ export default function DataUploadClient() {
                         <input
                             type="text"
                             value={reportingPeriod}
-                            onChange={(event) => setReportingPeriod(event.target.value)}
+                            onChange={(event) => { setReportingPeriod(event.target.value); setReplaceExistingPeriod(false); }}
                             maxLength={80}
                             placeholder="e.g. January 2026"
                             disabled={loading}

@@ -1,9 +1,12 @@
 import "server-only";
 
+import { requireHR } from "@/app/lib/ai/permissions";
+
 import { prisma } from "@/app/lib/prisma";
 import type { ServiceContext } from "@/app/lib/ai/types";
 
 export async function listDataSources(context: ServiceContext) {
+    requireHR(context);
     const sources = await prisma.dataSource.findMany({
         where: { organizationId: context.organizationId },
         orderBy: { createdAt: "desc" },
@@ -46,7 +49,8 @@ export async function listDataSources(context: ServiceContext) {
 export async function inspectDataSource(
     context: ServiceContext,
     dataSourceId: string,
-) {
+ ) {
+    requireHR(context);
     const source = await prisma.dataSource.findFirst({
         where: {
             id: dataSourceId,
@@ -111,6 +115,7 @@ export async function inspectDataSource(
  * files. Pending/failed imports must never be presented as queryable data.
  */
 export async function getCopilotDataContext(context: ServiceContext) {
+    if (context.role !== "HR") return [];
     const sources = await prisma.dataSource.findMany({
         where: {
             organizationId: context.organizationId,

@@ -138,8 +138,9 @@ export async function processDataImport(
 
         const normalizedHeaders = normalizeHeaders(parsed.headers);
         const storedSchemaColumns = readDatasetSchemaColumns(dataImport.dataSource.schema);
+        const storedSchemaTypes = readDatasetSchemaTypes(dataImport.dataSource.schema);
         let expectedColumns = storedSchemaColumns;
-        let expectedTypes = readDatasetSchemaTypes(dataImport.dataSource.schema);
+        let expectedTypes = storedSchemaTypes;
         const inferredTypes = inferDatasetColumnTypes(
             parsed.rows,
             parsed.headers,
@@ -281,7 +282,24 @@ export async function processDataImport(
                         throw new Error("Unable to establish a stable schema for this dataset.");
                     }
                     validateDatasetSchema(currentColumns, contractColumns);
+                    validateDatasetColumnTypes(
+                        readDatasetSchemaTypes(currentSource?.schema),
+                        parsed.rows,
+                        parsed.headers,
+                        normalizedHeaders,
+                    );
                 }
+            } else if (!storedSchemaTypes) {
+                await tx.dataSource.update({
+                    where: { id: dataImport.dataSourceId },
+                    data: {
+                        schema: {
+                            version: 1,
+                            columns: storedSchemaColumns,
+                            types: expectedTypes ?? inferredTypes,
+                        } as Prisma.InputJsonValue,
+                    },
+                });
             }
 
             if (dataImport.replaceExistingPeriod && dataImport.reportingPeriod) {

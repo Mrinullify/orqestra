@@ -33,11 +33,14 @@ export async function listDataSources(context: ServiceContext) {
         },
     });
 
-    return sources.map((source) => ({
-        ...source,
-        sizeBytes: source.sizeBytes?.toString() ?? null,
-        latestImport: source.imports[0] ?? null,
-    }));
+    return sources.map((source) => {
+        const { imports, ...dataset } = source;
+        return {
+            ...dataset,
+            sizeBytes: source.sizeBytes?.toString() ?? null,
+            latestImport: imports[0] ?? null,
+        };
+    });
 }
 
 export async function inspectDataSource(
@@ -137,7 +140,6 @@ export async function getCopilotDataContext(context: ServiceContext) {
                         select: {
                             originalName: true,
                             normalizedName: true,
-                            detectedType: true,
                         },
                     },
                 },

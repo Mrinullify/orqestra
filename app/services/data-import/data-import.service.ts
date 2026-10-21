@@ -7,7 +7,7 @@ import { prisma } from "@/app/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
 import { getObjectBytes } from "@/app/lib/storage";
 import type { ServiceContext } from "@/app/lib/ai/types";
-import { inferDatasetColumnTypes, normalizeHeaders, readDatasetSchemaColumns, readDatasetSchemaTypes, validateDatasetColumnTypes, validateDatasetSchema } from "@/app/services/data/schema-contract";
+import { inferDatasetColumnTypes, normalizeHeaders, readDatasetSchemaColumns, readDatasetSchemaTypes, validateDatasetColumnTypes, validateDatasetSchema, type DatasetColumnType } from "@/app/services/data/schema-contract";
 
 const MAX_IMPORT_ROWS = 250_000;
 const BATCH_SIZE = 1_000;
@@ -169,14 +169,13 @@ export async function processDataImport(
 
             if (!expectedTypes) {
                 const knownTypes = new Set(["number", "date", "boolean", "string", "mixed", "unknown"]);
-                const previousTypes = Object.fromEntries(
-                    mappings
-                        .filter((mapping) => mapping.detectedType && knownTypes.has(mapping.detectedType))
-                        .map((mapping) => [mapping.normalizedName, mapping.detectedType]),
-                );
-                if (Object.keys(previousTypes).length) {
-                    expectedTypes = previousTypes as ReturnType<typeof readDatasetSchemaTypes>;
+                const previousTypes: Record<string, DatasetColumnType> = {};
+                for (const mapping of mappings) {
+                    if (mapping.detectedType && knownTypes.has(mapping.detectedType)) {
+                        previousTypes[mapping.normalizedName] = mapping.detectedType as DatasetColumnType;
+                    }
                 }
+                if (Object.keys(previousTypes).length) expectedTypes = previousTypes;
             }
         }
 

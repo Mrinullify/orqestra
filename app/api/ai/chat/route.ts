@@ -11,6 +11,7 @@ import { ApprovalRequiredError } from "@/app/lib/ai/approvals";
 const MAX_HISTORY_MESSAGES = 8;
 const MAX_HISTORY_MESSAGE_CHARS = 2000;
 const MAX_TOOL_RESULT_CHARS = 12000;
+const MAX_TOOL_ROUNDS = 3;
 
 const requestSchema = z.object({
     message: z.string().trim().min(1).max(4000),
@@ -160,7 +161,11 @@ export async function POST(request: Request) {
 
         const tools = buildToolDefinitions();
 
-        for (let iteration = 0; iteration < 4; iteration += 1) {
+        for (let iteration = 0; iteration < MAX_TOOL_ROUNDS; iteration += 1) {
+            console.info(
+                `[AI ${context.requestId}] LLM round ${iteration + 1}/${MAX_TOOL_ROUNDS}`,
+            );
+
             const response = await generateResponse(messages, tools);
             const assistant = response.message;
 
@@ -176,6 +181,10 @@ export async function POST(request: Request) {
                     requestId: context.requestId,
                 });
             }
+
+            console.info(
+                `[AI ${context.requestId}] requested tools: ${assistant.tool_calls.map((call) => call.function.name).join(", ")}`,
+            );
 
             for (const toolCall of assistant.tool_calls) {
                 let rawArgs: unknown;
@@ -219,13 +228,18 @@ export async function POST(request: Request) {
             }
         }
 
-        return NextResponse.json(
-            {
-                error: "The assistant exceeded the tool-call limit.",
-                requestId: context.requestId,
-            },
-            { status: 500 },
+        // The last tool round may have produced enough data, but the model has not
+        // yet had a chance to turn it into a user-facing answer. Ask for that answer
+        // without tools so another tool loop cannot start.
+        console.warn(
+            `[AI ${context.requestId}] reached the tool-round limit; requesting a final answer without tools.`,
         );
+        const finalResponse = await generateResponse(messages, []);
+
+        return NextResponse.json({
+            message: finalResponse.message.content ?? "I retrieved the data, but couldn't produce a summary. Please try a more specific question.",
+            requestId: context.requestId,
+        });
     } catch (error) {
         if (error instanceof LlmConnectionError) {
             return NextResponse.json(

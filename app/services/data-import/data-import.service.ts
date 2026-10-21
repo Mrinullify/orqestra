@@ -169,6 +169,24 @@ export async function processDataImport(
             );
         }
 
+        if (dataImport.reportingPeriod && !dataImport.replaceExistingPeriod) {
+            const duplicatePeriod = await prisma.dataImport.findFirst({
+                where: {
+                    dataSourceId: dataImport.dataSourceId,
+                    id: { not: dataImport.id },
+                    reportingPeriod: dataImport.reportingPeriod,
+                    status: "COMPLETED",
+                    isActive: true,
+                },
+                select: { id: true },
+            });
+            if (duplicatePeriod) {
+                throw new Error(
+                    `The period "${dataImport.reportingPeriod}" already exists in this dataset. Enable replacement to avoid double-counting.`,
+                );
+            }
+        }
+
         await prisma.$transaction(async (tx) => {
             await tx.dataRecord.deleteMany({
                 where: { dataImportId: dataImport.id },
@@ -222,22 +240,38 @@ export async function processDataImport(
             });
         }
 
-        const completed = await prisma.dataImport.update({
-            where: { id: dataImport.id },
-            data: {
-                status: "COMPLETED",
-                totalRows: records.length,
-                acceptedRows: records.length,
-                rejectedRows: 0,
-                completedAt: new Date(),
-            },
-            select: {
-                id: true,
-                status: true,
-                totalRows: true,
-                acceptedRows: true,
-                rejectedRows: true,
-            },
+        const completed = await prisma.$transaction(async (tx) => {
+            if (dataImport.replaceExistingPeriod && dataImport.reportingPeriod) {
+                await tx.dataImport.updateMany({
+                    where: {
+                        dataSourceId: dataImport.dataSourceId,
+                        id: { not: dataImport.id },
+                        reportingPeriod: dataImport.reportingPeriod,
+                        status: "COMPLETED",
+                        isActive: true,
+                    },
+                    data: { isActive: false },
+                });
+            }
+
+            return tx.dataImport.update({
+                where: { id: dataImport.id },
+                data: {
+                    status: "COMPLETED",
+                    isActive: true,
+                    totalRows: records.length,
+                    acceptedRows: records.length,
+                    rejectedRows: 0,
+                    completedAt: new Date(),
+                },
+                select: {
+                    id: true,
+                    status: true,
+                    totalRows: true,
+                    acceptedRows: true,
+                    rejectedRows: true,
+                },
+            });
         });
 
         return completed;

@@ -184,6 +184,7 @@ export async function POST(request: Request) {
                             mimeType,
                             sizeBytes,
                             reportingPeriod,
+                            replaceExistingPeriod,
                         },
                     },
                 },

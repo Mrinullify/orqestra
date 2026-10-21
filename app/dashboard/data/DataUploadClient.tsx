@@ -67,7 +67,7 @@ export default function DataUploadClient() {
                     fileName: file.name,
                     datasetName: datasetName.trim(),
                     reportingPeriod: reportingPeriod.trim() || undefined,
-                    replaceExistingPeriod,
+                    replaceExistingPeriod: Boolean(reportingPeriod.trim()) && replaceExistingPeriod,
                     sizeBytes: file.size,
                     contentType: file.type || "application/octet-stream",
                 }),

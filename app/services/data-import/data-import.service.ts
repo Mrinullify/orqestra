@@ -228,19 +228,38 @@ export async function processDataImport(
             });
         }
 
-        if (!storedSchemaColumns) {
-            await prisma.dataSource.update({
-                where: { id: dataImport.dataSourceId },
-                data: {
-                    schema: {
-                        version: 1,
-                        columns: expectedColumns ?? normalizedHeaders,
-                    } as Prisma.InputJsonValue,
-                },
-            });
-        }
-
         const completed = await prisma.$transaction(async (tx) => {
+            if (!storedSchemaColumns) {
+                const contractColumns = expectedColumns ?? normalizedHeaders;
+                const schemaUpdate = await tx.dataSource.updateMany({
+                    where: {
+                        id: dataImport.dataSourceId,
+                        schema: { equals: Prisma.DbNull },
+                    },
+                    data: {
+                        schema: {
+                            version: 1,
+                            columns: contractColumns,
+                        } as Prisma.InputJsonValue,
+                    },
+                });
+
+                if (schemaUpdate.count === 0) {
+                    const currentSource = await tx.dataSource.findFirst({
+                        where: {
+                            id: dataImport.dataSourceId,
+                            organizationId: context.organizationId,
+                        },
+                        select: { schema: true },
+                    });
+                    const currentColumns = readDatasetSchemaColumns(currentSource?.schema);
+                    if (!currentColumns) {
+                        throw new Error("Unable to establish a stable schema for this dataset.");
+                    }
+                    validateDatasetSchema(currentColumns, contractColumns);
+                }
+            }
+
             if (dataImport.replaceExistingPeriod && dataImport.reportingPeriod) {
                 await tx.dataImport.updateMany({
                     where: {

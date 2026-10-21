@@ -49,3 +49,4 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/orqestra
           DIRECT_URL: postgresql://postgres:postgres@localhost:5432/orqestra
           GROQ_API_KEY: ci-placeholder-not-a-real-secret
+          RESEND_API_KEY: re_placeholder_for_ci_build

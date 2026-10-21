@@ -69,7 +69,6 @@ export default function DataUploadClient() {
                     reportingPeriod: reportingPeriod.trim() || undefined,
                     replaceExistingPeriod: Boolean(reportingPeriod.trim()) && replaceExistingPeriod,
                     sizeBytes: file.size,
-                    contentType: file.type || "application/octet-stream",
                 }),
             });
 

@@ -15,7 +15,9 @@ const filterSchema = z.object({
 
 export const aggregateCompanyDataSchema = z.object({
     dataSourceId: z.string().min(1),
-    operation: z.enum(["count", "sum", "average", "min", "max"]),
+    operations: z.array(z.enum(["count", "sum", "average", "min", "max"])).min(1).max(5).describe(
+        "All aggregate operations needed for the same column. Request multiple operations together when the user asks for multiple metrics, e.g. [\"average\", \"min\", \"max\"].",
+    ),
     column: z.string().min(1).optional(),
     filters: z.array(filterSchema).max(10).optional(),
     reportingPeriod: z.string().trim().min(1).max(80).optional(),
@@ -26,7 +28,7 @@ type AggregateCompanyDataInput = z.infer<typeof aggregateCompanyDataSchema>;
 export const aggregateCompanyDataTool: ToolDefinition<typeof aggregateCompanyDataSchema> = {
     name: "aggregate_company_data",
     description:
-        "Run a database-side aggregate on one uploaded company dataset. Use count for record counts, or sum/average/min/max for a numeric column such as salary. Use filters for exact column values and reportingPeriod to limit calculations to one imported period. This tool performs the calculation in PostgreSQL; do not calculate the result from returned rows.",
+        "Run one database-side aggregate query on one uploaded company dataset. Put EVERY requested metric in operations (for example, [\"average\", \"min\", \"max\"] for average, minimum, and maximum salary) so PostgreSQL computes all metrics in one query. Use count for record counts, or sum/average/min/max for a numeric column. Use filters for exact column values and reportingPeriod to limit calculations to one imported period. Do not call this tool repeatedly for each operation when one call can return them all.",
     inputSchema: aggregateCompanyDataSchema,
     allowedRoles: ["HR"],
     execute: async (input: AggregateCompanyDataInput, context) =>

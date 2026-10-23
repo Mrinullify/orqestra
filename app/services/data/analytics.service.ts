@@ -102,7 +102,7 @@ export async function aggregateCompanyData(
     context: ServiceContext,
     input: {
         dataSourceId: string;
-        operation: "count" | "sum" | "average" | "min" | "max";
+        operations: Array<"count" | "sum" | "average" | "min" | "max">;
         column?: string;
         filters?: CompanyDataFilter[];
         reportingPeriod?: string;
@@ -110,55 +110,65 @@ export async function aggregateCompanyData(
 ) {
     const source = await assertDataSource(context, input.dataSourceId);
     await assertReportingPeriodSelection(context, input.dataSourceId, input.reportingPeriod);
+
+    const operations = [...new Set(input.operations)];
+    if (operations.length === 0) {
+        throw new Error("At least one aggregate operation is required.");
+    }
+
+    const needsNumericColumn = operations.some((operation) => operation !== "count");
     await assertDatasetColumns(context, input.dataSourceId, [
-        ...(input.operation === "count" ? [] : input.column ? [input.column] : []),
+        ...(needsNumericColumn && input.column ? [input.column] : []),
         ...(input.filters ?? []).map((filter) => filter.column),
     ]);
-    const where = buildWhere(context, input.dataSourceId, input.filters, input.reportingPeriod);
 
-    if (input.operation === "count") {
-        const rows = await prisma.$queryRaw<Array<{ value: bigint }>>(Prisma.sql`
-            SELECT COUNT(*)::bigint AS value
-            FROM "DataRecord"
-            WHERE ${where}
-        `);
-
-        return {
-            dataSource: source,
-            operation: input.operation,
-            value: Number(rows[0]?.value ?? 0),
-        };
-    }
-
-    if (!input.column) {
+    if (needsNumericColumn && !input.column) {
         throw new Error("A numeric column is required for this operation.");
     }
-    await assertDatasetNumericColumns(context, input.dataSourceId, [input.column]);
+    if (needsNumericColumn && input.column) {
+        await assertDatasetNumericColumns(context, input.dataSourceId, [input.column]);
+    }
 
-    const expression = numericExpression(input.column);
-    const operationSql =
-        input.operation === "sum"
-            ? Prisma.sql`SUM(${expression})`
-            : input.operation === "average"
-              ? Prisma.sql`AVG(${expression})`
-              : input.operation === "min"
-                ? Prisma.sql`MIN(${expression})`
-                : Prisma.sql`MAX(${expression})`;
+    const where = buildWhere(context, input.dataSourceId, input.filters, input.reportingPeriod);
+    const expression = input.column ? numericExpression(input.column) : null;
 
-    const rows = await prisma.$queryRaw<Array<{ value: unknown }>>(Prisma.sql`
-        SELECT ${operationSql} AS value
+    // Operation names are a closed enum validated by Zod, so these SQL aliases
+    // cannot contain arbitrary user input. All aggregate metrics run in one query.
+    const selectExpressions = operations.map((operation) => {
+        const sql = operation === "count"
+            ? Prisma.sql`COUNT(*)::bigint`
+            : operation === "sum"
+              ? Prisma.sql`SUM(${expression!})`
+              : operation === "average"
+                ? Prisma.sql`AVG(${expression!})`
+                : operation === "min"
+                  ? Prisma.sql`MIN(${expression!})`
+                  : Prisma.sql`MAX(${expression!})`;
+        return Prisma.sql`${sql} AS ${Prisma.raw('"' + operation + '"')}`;
+    });
+
+    const rows = await prisma.$queryRaw<Array<Record<string, unknown>>>(Prisma.sql`
+        SELECT ${Prisma.join(selectExpressions)}
         FROM "DataRecord"
         WHERE ${where}
     `);
 
-    const rawValue = rows[0]?.value;
-    const value = rawValue === null || rawValue === undefined ? null : Number(rawValue);
+    const row = rows[0] ?? {};
+    const values = Object.fromEntries(operations.map((operation) => {
+        const rawValue = row[operation];
+        if (rawValue === null || rawValue === undefined) {
+            return [operation, operation === "count" ? 0 : null];
+        }
+        const value = Number(rawValue);
+        return [operation, Number.isFinite(value) ? value : null];
+    }));
 
     return {
         dataSource: source,
-        operation: input.operation,
-        column: input.column,
-        value: Number.isFinite(value ?? NaN) ? value : null,
+        column: input.column ?? null,
+        operations,
+        values,
+        reportingPeriod: input.reportingPeriod ?? null,
     };
 }
 

@@ -250,6 +250,11 @@ export async function POST(request: Request) {
             );
 
             const response = await generateResponse(messages, tools);
+            if (response.usage) {
+                console.info(
+                    `[AI ${context.requestId}] LLM usage round ${iteration + 1}: prompt=${response.usage.prompt_tokens ?? "n/a"} completion=${response.usage.completion_tokens ?? "n/a"} total=${response.usage.total_tokens ?? "n/a"}`,
+                );
+            }
             const assistant = response.message;
 
             messages.push({
@@ -352,6 +357,11 @@ export async function POST(request: Request) {
 
         try {
             const finalResponse = await generateResponse(finalMessages, []);
+            if (finalResponse.usage) {
+                console.info(
+                    `[AI ${context.requestId}] LLM usage final synthesis: prompt=${finalResponse.usage.prompt_tokens ?? "n/a"} completion=${finalResponse.usage.completion_tokens ?? "n/a"} total=${finalResponse.usage.total_tokens ?? "n/a"}`,
+                );
+            }
             if (finalResponse.message.content?.trim()) {
                 return NextResponse.json({
                     message: finalResponse.message.content,

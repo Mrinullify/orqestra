@@ -78,6 +78,11 @@ export type LlmResponse = {
         content: string | null;
         tool_calls?: LlmToolCall[];
     };
+    usage?: {
+        prompt_tokens?: number;
+        completion_tokens?: number;
+        total_tokens?: number;
+    };
 };
 
 function parseDurationSeconds(value: string | null): number | undefined {
@@ -198,12 +203,16 @@ async function callChatCompletions(
 
         const json = (await response.json()) as {
             choices?: Array<{ message?: LlmResponse["message"] }>;
+            usage?: LlmResponse["usage"];
         };
 
         const message = json.choices?.[0]?.message;
         if (!message) throw new Error("LLM returned no assistant message.");
 
-        return { message: { ...message, role: "assistant" } };
+        return {
+            message: { ...message, role: "assistant" },
+            usage: json.usage,
+        };
     }
 }
 
